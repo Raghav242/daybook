@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-daybook}
+      POSTGRES_USER: ${POSTGRES_USER:-daybook}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-daybook_local}
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: [daybook_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-daybook} -d ${POSTGRES_DB:-daybook}"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-daybook}:${POSTGRES_PASSWORD:-daybook_local}@db:5432/${POSTGRES_DB:-daybook}
+      CORS_ORIGINS: http://localhost:5173
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    ports: ["127.0.0.1:8000:8000"]
+    depends_on:
+      db: {condition: service_healthy}
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_API_PROXY: http://backend:8000
+    ports: ["127.0.0.1:5173:5173"]
+    depends_on: [backend]
+volumes:
+  daybook_data:
+
