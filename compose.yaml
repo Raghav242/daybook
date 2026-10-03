@@ -18,7 +18,7 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-daybook}:${POSTGRES_PASSWORD:-daybook_local}@db:5432/${POSTGRES_DB:-daybook}
       CORS_ORIGINS: http://localhost:5173
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
-    ports: ["127.0.0.1:8000:8000"]
+    ports: ["127.0.0.1:8001:8000"]
     depends_on:
       db: {condition: service_healthy}
   frontend:
