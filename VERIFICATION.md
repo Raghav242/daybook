@@ -33,3 +33,22 @@ The running preview uses an explicitly migrated, persisted SQLite file at `backe
 The backend test tooling emitted a Starlette/httpx deprecation warning; tests passed. No later-phase services were installed or started.
 
 Local first currently requires the local API to be running; disconnected browser writes/sync, authenticated multi-user access, public production hosting, and later-phase modules remain outside scope.
+
+## October 3 configuration update
+
+Deployment addresses, published/listening ports, CORS origins, proxy targets, database credentials, and the public browser API base are now supplied through environment variables. The private .env was extended without overwriting existing values, and Git ignore was verified.
+
+- Backend: 19 tests passed, including password-special-character handling, database URL override, CORS parsing, and real Docker Compose model validation with isolated fake environment files. Compose checks covered a required password and non-default addresses/ports/URLs; they do not require the Docker daemon.
+- Frontend: 9 tests passed, including configured and same-origin browser API bases. Type checking, ESLint, and production build passed.
+- Backend Ruff lint and formatting passed.
+- Existing database volumes and running containers were not changed or restarted. The earlier SQLite preview and stopped-daemon notes describe the original October 2 verification; the user subsequently started Docker independently.
+- Live cloud deployment and production access controls remain unverified and outside the local development setup.
+
+## October 3 development/production Docker workflows
+
+- Backend: 21 tests passed; Ruff lint and formatting passed. Compose model tests cover missing production database credentials, private API ports, migration ordering, no source mounts in production, and separation of frontend build arguments from database secrets.
+- Frontend: 9 tests passed; ESLint and production build passed.
+- Both production Docker images built successfully through Docker Desktop.
+- An isolated production Compose smoke test used a separate temporary PostgreSQL 17 database on tmpfs and frontend loopback port 18080. Migrations completed, API and frontend health checks passed, static frontend and SPA fallback returned 200, and dashboard/API health requests passed through Nginx. A task was created, listed, and deleted through the production proxy and PostgreSQL.
+- Temporary smoke-test containers, network, and configuration files were removed. The user's running local containers, credentials, and database volume were not changed. Private .env.production was created only if missing; both private environment files are ignored by Git.
+- Actual cloud ingress/TLS, split-domain provider networking, authentication, and development live reload were not runtime-tested. No cloud deployment or Git commit/push was performed.

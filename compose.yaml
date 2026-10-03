@@ -1,31 +1,60 @@
+# Local development topology. Connection settings are supplied by .env or the shell.
 services:
   db:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-daybook}
-      POSTGRES_USER: ${POSTGRES_USER:-daybook}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-daybook_local}
-    ports: ["127.0.0.1:5432:5432"]
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    command: ["postgres", "-p", "${POSTGRES_PORT:?Set POSTGRES_PORT}"]
+    ports:
+      - "${HOST_BIND_ADDRESS:?Set HOST_BIND_ADDRESS}:${POSTGRES_PUBLISHED_PORT:?Set POSTGRES_PUBLISHED_PORT}:${POSTGRES_PORT:?Set POSTGRES_PORT}"
     volumes: [daybook_data:/var/lib/postgresql/data]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-daybook} -d ${POSTGRES_DB:-daybook}"]
+      test: ["CMD-SHELL", "pg_isready -p ${POSTGRES_PORT:?Set POSTGRES_PORT} -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 3s
       timeout: 3s
       retries: 15
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      target: development
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/migrations:/app/migrations
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-daybook}:${POSTGRES_PASSWORD:-daybook_local}@db:5432/${POSTGRES_DB:-daybook}
-      CORS_ORIGINS: http://localhost:5173
-    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
-    ports: ["127.0.0.1:8001:8000"]
+      DATABASE_URL: ${DATABASE_URL:-}
+      POSTGRES_HOST: ${POSTGRES_HOST:?Set POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT:?Set POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set CORS_ORIGINS}
+      BACKEND_BIND_ADDRESS: ${BACKEND_BIND_ADDRESS:?Set BACKEND_BIND_ADDRESS}
+      BACKEND_PORT: ${BACKEND_PORT:?Set BACKEND_PORT}
+    command:
+      - sh
+      - -c
+      - 'alembic upgrade head && exec uvicorn app.main:app --reload --host "$$BACKEND_BIND_ADDRESS" --port "$$BACKEND_PORT"'
+    ports:
+      - "${HOST_BIND_ADDRESS:?Set HOST_BIND_ADDRESS}:${BACKEND_PUBLISHED_PORT:?Set BACKEND_PUBLISHED_PORT}:${BACKEND_PORT:?Set BACKEND_PORT}"
     depends_on:
       db: {condition: service_healthy}
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      target: development
+    volumes:
+      - ./frontend/src:/app/src
     environment:
-      VITE_API_PROXY: http://backend:8000
-    ports: ["127.0.0.1:5173:5173"]
+      VITE_API_PROXY: ${VITE_API_PROXY:?Set VITE_API_PROXY}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:?Set VITE_API_BASE_URL}
+      VITE_DEV_HOST: ${FRONTEND_BIND_ADDRESS:?Set FRONTEND_BIND_ADDRESS}
+      VITE_DEV_PORT: ${FRONTEND_PORT:?Set FRONTEND_PORT}
+      # Reliable file watching for Docker Desktop bind mounts.
+      VITE_USE_POLLING: "true"
+    ports:
+      - "${HOST_BIND_ADDRESS:?Set HOST_BIND_ADDRESS}:${FRONTEND_PUBLISHED_PORT:?Set FRONTEND_PUBLISHED_PORT}:${FRONTEND_PORT:?Set FRONTEND_PORT}"
     depends_on: [backend]
 volumes:
   daybook_data:

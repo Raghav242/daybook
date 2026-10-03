@@ -1,9 +1,11 @@
 import type { Dashboard, Module, Page, RecordInput, Records, Settings } from './contracts';
 
+const apiBase = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
-    response = await fetch('/api' + path, { ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
+    response = await fetch(apiBase + path, { ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
     throw new Error('Could not reach Daybook. Check that the local server is running and try again.');

@@ -1,0 +1,56 @@
+# Standalone production stack: managed PostgreSQL, no source mounts or dev servers.
+# Use -f compose.production.yaml, NOT as an override of the local compose.yaml.
+x-api: &api
+  image: daybook-backend:${IMAGE_TAG:?Set IMAGE_TAG}
+  build:
+    context: ./backend
+    target: production
+  environment:
+    DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL to your managed PostgreSQL secret}
+    CORS_ORIGINS: ${CORS_ORIGINS:?Set CORS_ORIGINS to the frontend origin}
+    BACKEND_BIND_ADDRESS: ${BACKEND_BIND_ADDRESS:?Set BACKEND_BIND_ADDRESS}
+    BACKEND_PORT: ${BACKEND_PORT:?Set BACKEND_PORT}
+
+services:
+  migrate:
+    <<: *api
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+  backend:
+    <<: *api
+    restart: unless-stopped
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ['BACKEND_PORT'] + '/api/health', timeout=3)"
+      interval: 15s
+      timeout: 5s
+      start_period: 15s
+      retries: 5
+  frontend:
+    image: daybook-frontend:${IMAGE_TAG:?Set IMAGE_TAG}
+    build:
+      context: ./frontend
+      target: production
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:?Set VITE_API_BASE_URL}
+    environment:
+      FRONTEND_PORT: ${FRONTEND_PORT:?Set FRONTEND_PORT}
+      BACKEND_UPSTREAM: ${BACKEND_UPSTREAM:?Set BACKEND_UPSTREAM}
+      NGINX_RESOLVER: ${NGINX_RESOLVER:?Set NGINX_RESOLVER}
+      # Preserve Nginx variables such as $uri and $request_uri during envsubst.
+      NGINX_ENVSUBST_FILTER: "^(FRONTEND_PORT|BACKEND_UPSTREAM|NGINX_RESOLVER)$$"
+    ports:
+      - "${HOST_BIND_ADDRESS:?Set HOST_BIND_ADDRESS}:${FRONTEND_PUBLISHED_PORT:?Set FRONTEND_PUBLISHED_PORT}:${FRONTEND_PORT:?Set FRONTEND_PORT}"
+    restart: unless-stopped
+    depends_on:
+      backend: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:$$FRONTEND_PORT/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
