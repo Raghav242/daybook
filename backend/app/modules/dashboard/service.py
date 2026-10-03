@@ -9,6 +9,8 @@ class DashboardService:
     def __init__(self, repository: DashboardRepository, settings: SettingsService):
         self.repository = repository
         self.settings = settings
+        if repository.user_id != settings.repository.user_id:
+            raise ValueError("Dashboard and settings must use the same authenticated owner.")
 
     def get(self, now: datetime | None = None):
         settings = self.settings.get()

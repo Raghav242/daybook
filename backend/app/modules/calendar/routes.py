@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database import get_session
+from app.modules.auth.dependencies import current_user
 from app.modules.calendar.repository import CalendarEntryRepository
 from app.modules.calendar.schemas import CalendarEntryInput, CalendarEntryOutput
 from app.modules.calendar.service import CalendarEntryService
@@ -15,9 +16,10 @@ from app.modules.settings.service import SettingsService
 router = APIRouter(prefix="/calendar", tags=["calendar"])
 
 
-def get_service(session: Session = Depends(get_session)):
+def get_service(session: Session = Depends(get_session), user=Depends(current_user)):
     return CalendarEntryService(
-        CalendarEntryRepository(session), SettingsService(SettingsRepository(session))
+        CalendarEntryRepository(session, user.id),
+        SettingsService(SettingsRepository(session, user.id)),
     )
 
 

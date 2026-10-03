@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database import get_session
+from app.modules.auth.dependencies import current_user
 from app.modules.tasks.repository import TaskRepository
 from app.modules.tasks.schemas import TaskInput, TaskOutput
 from app.modules.tasks.service import TaskService
@@ -12,8 +13,8 @@ from app.modules.tasks.service import TaskService
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
-def get_service(session: Session = Depends(get_session)):
-    return TaskService(TaskRepository(session))
+def get_service(session: Session = Depends(get_session), user=Depends(current_user)):
+    return TaskService(TaskRepository(session, user.id))
 
 
 class Page(BaseModel):

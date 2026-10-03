@@ -13,6 +13,8 @@ class CalendarEntryService:
     def __init__(self, repository: CalendarEntryRepository, settings: SettingsService):
         self.repository = repository
         self.settings = settings
+        if repository.user_id != settings.repository.user_id:
+            raise ValueError("Calendar and settings must use the same authenticated owner.")
 
     def list(self, offset: int, limit: int, period: str):
         now = datetime.now(timezone.utc)
@@ -21,12 +23,14 @@ class CalendarEntryService:
 
     def get(self, record_id: UUID):
         record = self.repository.get(record_id)
-        if record is None:
+        if record is None or record.user_id != self.repository.user_id:
             raise NotFound("This record could not be found.")
         return record
 
     def create(self, data: CalendarEntryInput):
-        return self.repository.save(CalendarEntry(**data.model_dump()))
+        return self.repository.save(
+            CalendarEntry(user_id=self.repository.user_id, **data.model_dump())
+        )
 
     def update(self, record_id: UUID, data: CalendarEntryInput):
         record = self.get(record_id)

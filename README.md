@@ -1,8 +1,41 @@
 # Daybook
 
-A local-first, single-user dashboard for tasks, an agenda calendar, groceries, and bills. Phase 0 and Phase 1 are implemented. Warm ivory surfaces, locally bundled Inter, a composed dashboard, responsive navigation, and explicit quick capture keep everyday work easy to find.
+A personal, multi-user dashboard for tasks, an agenda calendar, groceries, and bills. Phase 0 and Phase 1 are implemented. Warm ivory surfaces, locally bundled Inter, a composed dashboard, responsive navigation, and explicit quick capture keep everyday work easy to find.
 
 ## Run with Docker Compose (recommended)
+
+### Accounts and upgrading an existing database
+
+New installations start empty. Open Daybook and choose **Create an account**. Usernames use 3–40 ASCII letters, numbers, dots, underscores or hyphens and are unique ignoring case. Passwords use 5–128 characters and are stored only as Argon2id hashes. Registration signs you in; no sample records are added. Login, registration, logout and session lookup are available under `/api/auth` (and root `/auth`).
+
+Before upgrading a populated installation, back up PostgreSQL. Migration `0002` inspects record counts, adds users/sessions and nullable ownership, and removes the settings singleton constraint. Migration `0003` refuses to proceed if any personal row has no owner. Nothing is silently assigned or deleted. For legacy records, stop the app's frontend/backend during the maintenance window, then run:
+
+```powershell
+docker compose stop frontend backend
+docker compose build backend
+docker compose run --rm backend alembic upgrade 0002
+docker compose run --rm backend python -m app.manage create-user --username YOUR_USERNAME
+# Enter a password at the hidden prompts; never pass it as a command argument.
+docker compose run --rm backend python -m app.manage claim-legacy --owner YOUR_USERNAME
+# Review the counts and selected owner. Then explicitly assign:
+docker compose run --rm backend python -m app.manage claim-legacy --owner YOUR_USERNAME --apply
+docker compose run --rm backend alembic upgrade head
+docker compose up -d --build
+```
+
+The assignment command affects only unowned rows, preserves record IDs/values, and refuses to overwrite an owner's existing settings. An already-existing account can be selected instead of creating one. The command requires an explicit existing username; registering a new account never claims legacy data. Migration `0002` is not automatically reversible after accounts/ownership exist: restore a pre-upgrade backup to return to the old schema. Empty databases can migrate directly to head.
+
+### Cookies, CSRF and production domains
+
+Sessions use opaque random tokens in an HttpOnly, host-only, `SameSite=Lax` cookie; only the SHA-256 token hash is stored in PostgreSQL. Login rotates the token and revokes the prior browser session. Logout revokes it server-side. Sessions expire after `SESSION_TTL_SECONDS` (default seven days); pre-login CSRF sessions expire after 30 minutes. The frontend keeps only its CSRF value in memory and never stores authentication tokens in localStorage. Private HTTP responses use `Cache-Control: no-store`; logout/account changes unmount private views and cancel their resource requests.
+
+`SESSION_COOKIE_SECURE=true` is the backend default and required for HTTPS production. Local Compose explicitly defaults it to false for HTTP localhost. For host development set `SESSION_COOKIE_SECURE=false` in the backend process environment; host commands do not automatically load `.env`. Production Compose defaults it to true. Use the same hostname throughout local browsing (`localhost` or `127.0.0.1`).
+
+Before a login/registration POST, call `GET /api/auth/csrf`, retain its cookie, and send its returned `csrf_token` in the `X-CSRF-Token` header. Authenticated `/auth/me` responses also return the current CSRF token. Every state-changing request requires the valid session-bound header; supplied `Origin` headers must match `CORS_ORIGINS`. Browser requests include credentials and CORS allows only configured exact origins. Do not use wildcard origins with cookies.
+
+Because cookies are `SameSite=Lax`, unrelated provider domains such as `your-app.vercel.app` and `your-api.onrender.com` cannot use cross-site fetch authentication directly. Use a same-origin `/api` proxy (Vercel rewrites or Nginx), or same-site HTTPS custom domains such as `app.example.com` and `api.example.com`. For same-site separate origins, configure the public API build URL, credentialed CORS, and the exact frontend origin. CORS alone cannot override SameSite restrictions. Keep credentials out of frontend build variables.
+
+Login is limited by both normalized username and client IP, using atomic database counters shared across API processes. Registration also has an IP limit. Defaults are `AUTH_RATE_LIMIT=10` attempts per `AUTH_RATE_WINDOW_SECONDS=300`; CSRF session creation allows 60 per IP per five minutes. Invalid logins return the same message for unknown accounts and wrong passwords. Behind a proxy, configure trusted forwarding only for your actual ingress; do not trust arbitrary client-supplied forwarding headers. With no trusted forwarding the IP bucket may be shared by all users behind the proxy. Schedule `python -m app.manage prune-auth` to remove expired sessions/counters. Email verification, social login and password recovery are outside this phase.
 
 Prerequisites: Docker Desktop with its Linux engine running, or Docker Engine with Compose v2. The example environment publishes frontend/API/database ports 5173, 8001, and 5432 on loopback. Addresses and ports are configurable in .env.
 
@@ -86,7 +119,7 @@ For separate public frontend/API domains, set `VITE_API_BASE_URL=https://your-ap
 
 When the cloud provider deploys individual images rather than Compose, build the `production` targets from each Dockerfile. Supply the frontend build argument `VITE_API_BASE_URL`, and runtime variables `FRONTEND_PORT`, `BACKEND_UPSTREAM`, and `NGINX_RESOLVER`. Supply backend runtime variables `DATABASE_URL`, `CORS_ORIGINS`, `BACKEND_BIND_ADDRESS`, and `BACKEND_PORT`; its start command also accepts the provider's `PORT`. Run `alembic upgrade head` as a release job using the backend image before starting API replicas. The provider's service definitions replace Compose dependencies, port publication, and health checks.
 
-Cloud ingress must provide HTTPS and route to the published frontend port. Keep loopback binding when a host reverse proxy handles ingress; configure the binding/network appropriately for your provider. Configure database backups and private network access. Daybook still has no application authentication: protect the deployment with an access gateway/VPN covering every public frontend and API entry point, or add authentication before exposing personal records publicly. CORS is not access control.
+Cloud ingress must provide HTTPS and route to the published frontend port. Keep loopback binding when a host reverse proxy handles ingress; configure the binding/network appropriately for your provider. Configure database backups and private network access. Daybook uses username/password authentication and per-user authorization. Keep all production traffic on HTTPS. CORS allows browser requests but does not replace authentication.
 
 Commit `.env.example`, `.env.production.example`, Dockerfiles, Nginx templates, and Compose files. Keep `.env` and `.env.production` private; cloud secrets belong in the platform's secret manager, not in build arguments.
 
@@ -128,11 +161,11 @@ docker compose exec backend alembic current
 Optional realistic samples, relative to the profile's current local date:
 
 ```powershell
-docker compose exec backend python -m app.seed
-docker compose exec backend python -m app.seed --clear
+docker compose exec backend python -m app.seed --owner demo
+docker compose exec backend python -m app.seed --owner demo --clear
 ```
 
-Seeding is idempotent, uses deterministic sample UUIDs, and does not change settings. Clearing removes only those known sample UUIDs, including samples you have edited. Other records are preserved. It never runs at startup.
+Create the designated demo account first with `docker compose exec backend python -m app.manage create-user --username demo` (hidden password prompts). Seeding is opt-in and idempotent, uses deterministic sample UUIDs, and does not change settings. Clearing removes only those known sample UUIDs, including samples you have edited. Other records are preserved. It never runs at startup.
 
 Stop while retaining data:
 
@@ -155,9 +188,9 @@ $env:POSTGRES_DB = 'daybook'
 $env:POSTGRES_USER = 'daybook'
 $env:POSTGRES_PASSWORD = (Get-Credential -UserName daybook -Message 'Enter the password from .env').GetNetworkCredential().Password
 $env:CORS_ORIGINS = 'http://localhost:5173,http://127.0.0.1:5173'
+$env:SESSION_COOKIE_SECURE = 'false' # Local HTTP only
 Set-Location backend
 ..\.venv\Scripts\python.exe -m alembic upgrade head
-..\.venv\Scripts\python.exe -m app.seed
 ..\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
@@ -182,11 +215,10 @@ From `backend`:
 ```powershell
 $env:DATABASE_URL = 'sqlite:///./daybook.db'
 ..\.venv\Scripts\python.exe -m alembic upgrade head
-..\.venv\Scripts\python.exe -m app.seed
 ..\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Run the frontend as above. Optional samples can be cleared using `..\.venv\Scripts\python.exe -m app.seed --clear` with the same database URL. The preview database is ignored by Git. SQLite and PostgreSQL stores are separate; no automatic synchronization or transfer is implemented.
+Run the frontend as above. Optional samples can be cleared using `..\.venv\Scripts\python.exe -m app.seed --owner demo --clear` with the same database URL. The preview database is ignored by Git. SQLite and PostgreSQL stores are separate; no automatic synchronization or transfer is implemented.
 
 ## Verification commands
 
@@ -198,7 +230,7 @@ From `backend`:
 ..\.venv\Scripts\python.exe -m ruff format --check app tests migrations
 ```
 
-Tests apply the real Alembic migration to isolated temporary SQLite databases. To run the same tests against PostgreSQL, create a **dedicated disposable empty database**, then set `TEST_DATABASE_URL`. Tests migrate it and drop all Daybook tables after each test. Never use your personal database.
+Tests apply the real Alembic migrations to isolated temporary SQLite databases. Ownership checks use real database sessions and HTTP requests. To run the same tests against PostgreSQL, create a **dedicated disposable empty database**, then set `TEST_DATABASE_URL`. Tests migrate it and drop all Daybook tables after each test. Never use your personal database. Legacy migration tests also run against this disposable database when configured.
 
 ```powershell
 # Create a separate database first (with a PostgreSQL client or database admin tool).
@@ -240,7 +272,7 @@ Lists have 25-record pages, with bounded API pagination up to 100. Dashboard lis
 
 ## Data assumptions and limitations
 
-- One profile, no login or multi-user isolation. Keep the services on your own computer. This is not a secure multi-user deployment.
+- Accounts use session authentication and isolated personal records. Production requires HTTPS and correctly configured cookie/CORS settings.
 - Defaults: `America/New_York`, `USD`, all four modules enabled. Set your timezone in Settings before entering timed events.
 - Tasks have either `due_date` (a calendar date), `due_at` (an aware instant), or neither. Today's task count includes open overdue tasks and today's deadlines. Overdue task attention uses deadlines before today's local midnight.
 - Timed events are stored as UTC instants and rendered in the profile's timezone. Task timed deadlines follow the same convention.

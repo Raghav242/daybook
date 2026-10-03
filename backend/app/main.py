@@ -9,6 +9,8 @@ from starlette.exceptions import HTTPException
 
 from app.core.config import CORS_ORIGINS
 from app.core.errors import NotFound
+from app.modules.auth.routes import router as auth
+from app.modules.auth.service import AuthError
 from app.modules.bills.routes import router as bills
 from app.modules.calendar.routes import router as calendar
 from app.modules.dashboard.routes import router as dashboard
@@ -16,13 +18,17 @@ from app.modules.groceries.routes import router as groceries
 from app.modules.settings.routes import router as settings
 from app.modules.tasks.routes import router as tasks
 
-app = FastAPI(title="Daybook", version="0.1.0", description="Local single-user life dashboard")
+app = FastAPI(title="Daybook", version="0.2.0", description="Personal life dashboard")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "X-CSRF-Token"],
+    allow_credentials=True,
 )
+app.include_router(auth, prefix="/api")
+# Root auth endpoints are available for clients following the /auth contract.
+app.include_router(auth, include_in_schema=False)
 for router in [tasks, calendar, groceries, bills, settings, dashboard]:
     app.include_router(router, prefix="/api")
 
@@ -37,6 +43,22 @@ async def not_found(request: Request, exc: NotFound):
     return JSONResponse(
         status_code=404, content={"error": {"code": "not_found", "message": str(exc)}}
     )
+
+
+@app.exception_handler(AuthError)
+async def auth_error(request: Request, exc: AuthError):
+    return JSONResponse(
+        status_code=exc.status,
+        content={"error": {"code": exc.code, "message": exc.message}},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.middleware("http")
+async def private_no_store(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.exception_handler(RequestValidationError)

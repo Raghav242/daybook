@@ -6,10 +6,12 @@ from decimal import Decimal
 from uuid import NAMESPACE_URL, uuid5
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database import engine
+from app.modules.auth.models import User
+from app.modules.auth.service import normalize_username
 from app.modules.bills.models import Bill
 from app.modules.calendar.models import CalendarEntry
 from app.modules.groceries.models import Grocery
@@ -18,9 +20,14 @@ from app.modules.settings.service import SettingsService
 from app.modules.tasks.models import Task
 
 
-def seed(clear=False):
+def seed(owner, clear=False):
     with Session(engine) as session, session.begin():
-        settings = SettingsService(SettingsRepository(session)).get()
+        user = session.scalar(
+            select(User).where(User.normalized_username == normalize_username(owner))
+        )
+        if not user:
+            raise ValueError("Designated demo account does not exist. Create it explicitly first.")
+        settings = SettingsService(SettingsRepository(session, user.id)).get()
         zone = ZoneInfo(settings.timezone)
         today = datetime.now(zone).date()
 
@@ -154,12 +161,17 @@ def seed(clear=False):
         ]
         changed = 0
         for model, key, values in records:
-            record_id = uuid5(NAMESPACE_URL, "daybook:sample:" + model.__tablename__ + ":" + key)
+            record_id = uuid5(
+                NAMESPACE_URL,
+                "daybook:sample:" + str(user.id) + ":" + model.__tablename__ + ":" + key,
+            )
             if clear:
-                result = session.execute(delete(model).where(model.id == record_id))
+                result = session.execute(
+                    delete(model).where(model.id == record_id, model.user_id == user.id)
+                )
                 changed += result.rowcount
             elif session.get(model, record_id) is None:
-                session.add(model(id=record_id, **values))
+                session.add(model(id=record_id, user_id=user.id, **values))
                 changed += 1
     print(f"{'Removed' if clear else 'Added'} {changed} sample records.")
 
@@ -169,4 +181,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--clear", action="store_true", help="Remove only the deterministic sample records."
     )
-    seed(parser.parse_args().clear)
+    parser.add_argument("--owner", required=True, help="Existing designated demo username.")
+    args = parser.parse_args()
+    seed(args.owner, args.clear)

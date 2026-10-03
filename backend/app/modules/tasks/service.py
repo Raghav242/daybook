@@ -15,12 +15,12 @@ class TaskService:
 
     def get(self, record_id: UUID):
         record = self.repository.get(record_id)
-        if record is None:
+        if record is None or record.user_id != self.repository.user_id:
             raise NotFound("This record could not be found.")
         return record
 
     def create(self, data: TaskInput):
-        return self.repository.save(Task(**data.model_dump()))
+        return self.repository.save(Task(user_id=self.repository.user_id, **data.model_dump()))
 
     def update(self, record_id: UUID, data: TaskInput):
         record = self.get(record_id)

@@ -25,3 +25,10 @@ def get_cors_origins():
 
 
 CORS_ORIGINS = get_cors_origins()
+
+# Secure by default. Explicitly disable only for local HTTP development.
+SESSION_COOKIE_NAME = "daybook_session"
+SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "true").lower() == "true"
+SESSION_TTL_SECONDS = int(os.getenv("SESSION_TTL_SECONDS", "604800"))
+AUTH_RATE_LIMIT = int(os.getenv("AUTH_RATE_LIMIT", "10"))
+AUTH_RATE_WINDOW_SECONDS = int(os.getenv("AUTH_RATE_WINDOW_SECONDS", "300"))

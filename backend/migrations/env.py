@@ -3,6 +3,7 @@ from sqlalchemy import create_engine, pool
 
 from app.core.config import DATABASE_URL
 from app.infrastructure.database import Base
+from app.modules.auth.models import AuthRateLimit, AuthSession, User  # noqa: F401
 from app.modules.bills.models import Bill  # noqa: F401
 from app.modules.calendar.models import CalendarEntry  # noqa: F401
 from app.modules.groceries.models import Grocery  # noqa: F401

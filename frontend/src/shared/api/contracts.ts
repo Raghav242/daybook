@@ -15,3 +15,5 @@ export interface Dashboard {
   tasks: Task[]; agenda: CalendarEntry[]; upcoming: CalendarEntry[]; groceries: Grocery[]; bills: Bill[]; bill_totals: Record<string, string>;
 }
 
+export interface User { id: string; username: string }
+export interface AuthSession { user: User; csrf_token: string }

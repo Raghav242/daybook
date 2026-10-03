@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database import get_session
+from app.modules.auth.dependencies import current_user
 from app.modules.bills.schemas import BillOutput
 from app.modules.calendar.schemas import CalendarEntryOutput
 from app.modules.dashboard.repository import DashboardRepository
@@ -31,8 +32,8 @@ class Summary(BaseModel):
 
 
 @router.get("", response_model=Summary)
-def get_dashboard(session: Session = Depends(get_session)):
+def get_dashboard(session: Session = Depends(get_session), user=Depends(current_user)):
     service = DashboardService(
-        DashboardRepository(session), SettingsService(SettingsRepository(session))
+        DashboardRepository(session, user.id), SettingsService(SettingsRepository(session, user.id))
     )
     return service.get()

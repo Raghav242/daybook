@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, CheckConstraint, Date, String, Text, Uuid
+from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.database import Base
@@ -15,6 +15,7 @@ class Task(Base):
         CheckConstraint("priority IN ('low', 'normal', 'high')", name="task_priority"),
     )
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(200))
     notes: Mapped[str] = mapped_column(Text, default="")
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)

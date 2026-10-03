@@ -40,7 +40,7 @@ Completion criteria: timezone and all-day fidelity, idempotent sync, explicit ow
 
 Expose narrow, validated MCP tools for authorized record access. Add offline browser reads/writes, synchronization, local export/import, backups, and conflict resolution.
 
-Completion criteria: scoped tools with clear read/write permissions, confirmation for destructive operations, deterministic offline reconciliation, restore drills, and a documented boundary between local single-user use and any future multi-user deployment.
+Completion criteria: scoped tools with clear read/write permissions, confirmation for destructive operations, deterministic offline reconciliation, restore drills, and enforcement of the existing user ownership boundary throughout tools, workers and storage.
 
 Ollama, Qdrant, Celery/Redis, external calendar adapters, and MCP servers are intentionally absent from the current Compose stack.
 

@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from uuid import UUID
 
 import pytest
 from sqlalchemy.orm import Session
@@ -43,7 +44,10 @@ def test_deadlines_and_timezone_boundaries(client):
     dependency = app.dependency_overrides[get_session]()
     session: Session = next(dependency)
     service = DashboardService(
-        DashboardRepository(session), SettingsService(SettingsRepository(session))
+        DashboardRepository(session, UUID(client.get("/api/auth/me").json()["user"]["id"])),
+        SettingsService(
+            SettingsRepository(session, UUID(client.get("/api/auth/me").json()["user"]["id"]))
+        ),
     )
     summary = service.get(datetime(2026, 10, 3, 2, tzinfo=timezone.utc))
     assert summary["today"].isoformat() == "2026-10-02"
@@ -179,7 +183,10 @@ def test_all_day_agenda_uses_date_not_utc_instant(client):
     dependency = app.dependency_overrides[get_session]()
     session = next(dependency)
     service = DashboardService(
-        DashboardRepository(session), SettingsService(SettingsRepository(session))
+        DashboardRepository(session, UUID(client.get("/api/auth/me").json()["user"]["id"])),
+        SettingsService(
+            SettingsRepository(session, UUID(client.get("/api/auth/me").json()["user"]["id"]))
+        ),
     )
     assert len(service.get(datetime(2026, 10, 2, 18, tzinfo=timezone.utc))["agenda"]) == 1
     assert len(service.get(datetime(2026, 10, 3, 18, tzinfo=timezone.utc))["agenda"]) == 0
@@ -259,7 +266,10 @@ def test_dashboard_daylight_saving_day_is_not_fixed_24_hours(client):
     dependency = app.dependency_overrides[get_session]()
     session = next(dependency)
     service = DashboardService(
-        DashboardRepository(session), SettingsService(SettingsRepository(session))
+        DashboardRepository(session, UUID(client.get("/api/auth/me").json()["user"]["id"])),
+        SettingsService(
+            SettingsRepository(session, UUID(client.get("/api/auth/me").json()["user"]["id"]))
+        ),
     )
     summary = service.get(datetime(2026, 3, 8, 18, tzinfo=timezone.utc))
     assert summary["today"].isoformat() == "2026-03-08"
@@ -274,10 +284,10 @@ def test_seed_idempotence_and_clear_preserve_personal_records(client, monkeypatc
     dependency = app.dependency_overrides[get_session]()
     session = next(dependency)
     monkeypatch.setattr(seed, "engine", session.get_bind())
-    seed.seed()
-    seed.seed()
+    seed.seed("test-user")
+    seed.seed("test-user")
     assert client.get("/api/tasks").json()["total"] == 4
-    seed.seed(clear=True)
+    seed.seed("test-user", clear=True)
     assert client.get("/api/tasks").json()["items"][0]["title"] == "Personal record"
     assert client.get("/api/tasks").json()["total"] == 1
     assert client.get("/api/calendar").json()["total"] == 0

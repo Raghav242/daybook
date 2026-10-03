@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database import get_session
+from app.modules.auth.dependencies import current_user
 from app.modules.bills.repository import BillRepository
 from app.modules.bills.schemas import BillInput, BillOutput
 from app.modules.bills.service import BillService
@@ -12,8 +13,8 @@ from app.modules.bills.service import BillService
 router = APIRouter(prefix="/bills", tags=["bills"])
 
 
-def get_service(session: Session = Depends(get_session)):
-    return BillService(BillRepository(session))
+def get_service(session: Session = Depends(get_session), user=Depends(current_user)):
+    return BillService(BillRepository(session, user.id))
 
 
 class Page(BaseModel):

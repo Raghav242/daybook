@@ -1,5 +1,17 @@
 # Verification
 
+## Multi-user authentication update
+
+- Inspected the feature routes/services/repositories, models, Alembic schema, seed command, and frontend resource lifecycle before implementing authentication. Read-only counts in the running local PostgreSQL database showed zero tasks, calendar entries, groceries, bills, and settings.
+- Backend: 41 tests pass on isolated SQLite databases and on a separate disposable PostgreSQL 17 database. Tests exercise Argon2id hashes, normalized username uniqueness, generic invalid logins, opaque token hashing/rotation, logout revocation, expiration, cookie flags, database-backed rate limits, CSRF, every personal feature's cross-account list/read/update/delete behavior, rejected supplied ownership, dashboard totals, independent settings, and database foreign-key/non-null constraints.
+- Legacy migration tests on both engines verify that unowned data blocks the ownership constraint migration, preview does not assign data, explicit ownership preserves records/settings, and a second account can save settings after the legacy settings sequence is advanced.
+- Frontend: 15 tests pass, covering initial session loading, logout/account cache reset, old requests completing after a new account logs in, session-expired handling, preserved usernames, password-manager autocomplete, credentialed requests, and CSRF headers. ESLint, TypeScript checking, and the production frontend build pass. Backend Ruff lint/format checks and Git whitespace checks pass.
+- Local Docker images rebuilt and the inspected empty local database upgraded through 0003. Its volume and credentials were preserved. API health returns 200; unauthenticated /api/auth/me returns 401 through the frontend proxy. No real account or personal sample records were created.
+- Login desktop and registration mobile screens rendered in headless Microsoft Edge and screenshots were visually inspected: verification/auth-login.png and verification/auth-register-mobile.png. Existing warm styling and feature layouts are retained.
+- Production cloud ingress, real cross-domain deployment, and password recovery/social login/email verification were not implemented or tested. SameSite=Lax requires same-site HTTPS custom domains or a same-origin API proxy. A Starlette/httpx test-tool deprecation warning remains; tests pass.
+
+Earlier sections record the previous single-user implementation and historical checks.
+
 Checks completed October 2, 2026 (America/New_York).
 
 ## Automated checks

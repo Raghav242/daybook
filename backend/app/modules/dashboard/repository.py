@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
@@ -8,8 +10,9 @@ from app.modules.tasks.models import Task
 
 
 class DashboardRepository:
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, user_id: UUID):
         self.session = session
+        self.user_id = user_id
 
     def summary(self, today, start, end, horizon):
         task_due = or_(Task.due_date <= today, Task.due_at < end)
@@ -17,23 +20,29 @@ class DashboardRepository:
         active = Task.completed.is_(False)
         counts = {
             "tasks_today": self.session.scalar(
-                select(func.count()).select_from(Task).where(active, task_due)
+                select(func.count())
+                .select_from(Task)
+                .where(Task.user_id == self.user_id, active, task_due)
             ),
             "tasks_overdue": self.session.scalar(
-                select(func.count()).select_from(Task).where(active, task_overdue)
+                select(func.count())
+                .select_from(Task)
+                .where(Task.user_id == self.user_id, active, task_overdue)
             ),
             "groceries_remaining": self.session.scalar(
-                select(func.count()).select_from(Grocery).where(Grocery.purchased.is_(False))
+                select(func.count())
+                .select_from(Grocery)
+                .where(Grocery.user_id == self.user_id, Grocery.purchased.is_(False))
             ),
             "bills_overdue": self.session.scalar(
                 select(func.count())
                 .select_from(Bill)
-                .where(Bill.paid.is_(False), Bill.due_date < today)
+                .where(Bill.user_id == self.user_id, Bill.paid.is_(False), Bill.due_date < today)
             ),
         }
         tasks = self.session.scalars(
             select(Task)
-            .where(active)
+            .where(Task.user_id == self.user_id, active)
             .order_by(
                 task_due.desc().nullslast(),
                 (Task.priority == "high").desc(),
@@ -58,36 +67,37 @@ class DashboardRepository:
         )
         agenda = self.session.scalars(
             select(CalendarEntry)
-            .where(agenda_condition)
+            .where(CalendarEntry.user_id == self.user_id, agenda_condition)
             .order_by(CalendarEntry.start, CalendarEntry.id)
             .limit(8)
         ).all()
         upcoming = self.session.scalars(
             select(CalendarEntry)
             .where(
+                CalendarEntry.user_id == self.user_id,
                 or_(
                     and_(CalendarEntry.all_day.is_(False), CalendarEntry.start >= end),
                     and_(CalendarEntry.all_day.is_(True), CalendarEntry.start_date > today),
-                )
+                ),
             )
             .order_by(CalendarEntry.start, CalendarEntry.id)
             .limit(3)
         ).all()
         groceries = self.session.scalars(
             select(Grocery)
-            .where(Grocery.purchased.is_(False))
+            .where(Grocery.user_id == self.user_id, Grocery.purchased.is_(False))
             .order_by(Grocery.category, Grocery.name, Grocery.id)
             .limit(5)
         ).all()
         bills = self.session.scalars(
             select(Bill)
-            .where(Bill.paid.is_(False), Bill.due_date <= horizon)
+            .where(Bill.user_id == self.user_id, Bill.paid.is_(False), Bill.due_date <= horizon)
             .order_by(Bill.due_date, Bill.id)
             .limit(5)
         ).all()
         totals = self.session.execute(
             select(Bill.currency, func.sum(Bill.amount))
-            .where(Bill.paid.is_(False), Bill.due_date <= horizon)
+            .where(Bill.user_id == self.user_id, Bill.paid.is_(False), Bill.due_date <= horizon)
             .group_by(Bill.currency)
             .order_by(Bill.currency)
         ).all()

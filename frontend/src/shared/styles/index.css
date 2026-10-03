@@ -10,6 +10,25 @@
 }
 :root {font-family: "Inter", sans-serif; color: #262b28; background: #f5f3ee; font-synthesis: none; font-size: 14px; line-height: 1.5; --accent: #42634f; --muted: #626b64; --border: #dddcd3}
 * {box-sizing: border-box}
+.auth-shell {min-height: 100dvh; display: grid; place-items: center; padding: clamp(12px, 3dvh, 24px) 16px}
+.auth-card {width: min(100%, 420px); padding: 24px; background: #fcfbf8; border: 1px solid var(--border); border-radius: 12px}
+.auth-card .brand {margin: 0 0 20px}
+.auth-card .page-subtitle {margin-bottom: 18px}
+.auth-card fieldset {border: 0; padding: 0; margin: 0; display: grid; gap: 12px; min-width: 0}
+.auth-card label {display: grid; gap: 6px; margin: 0}
+.auth-submit {width: 100%; justify-content: center; margin-top: 4px}
+.auth-switch {margin-top: 16px; font-size: 13px}
+.auth-footnote {font-size: 11px; margin-top: 16px}
+.topbar-actions {display: flex; align-items: center; gap: 8px; flex-shrink: 0}
+.sidebar-footer > div {min-width: 0}.sidebar-footer strong {overflow-wrap: anywhere}
+@media (max-height: 600px) {
+  .auth-card {padding: 18px}.auth-card .brand {margin-bottom: 12px}.auth-card h1 {font-size: 26px}
+  .auth-card .page-subtitle {margin-top: 6px; margin-bottom: 12px}.auth-footnote {display: none}
+}
+@media (max-height: 440px) {
+  .auth-card .brand {margin-bottom: 8px}.auth-card .eyebrow,.auth-card .brand-caption,.auth-card .page-subtitle {display: none}
+  .auth-card h1 {font-size: 22px; margin-bottom: 12px}.auth-card fieldset {gap: 8px}.auth-switch {margin-top: 10px}
+}
 body {margin: 0}
 button, input, select, textarea {font: inherit}
 button, a { -webkit-tap-highlight-color: transparent}
@@ -166,11 +185,12 @@ fieldset {border: 0; margin: 0; padding: 0; min-width: 0}
 @media (max-width: 850px) {.sidebar {width: 180px}.brand {font-size: 21px; gap: 8px}.brand-caption {font-size: 8px}.sidebar-later {margin-left: 0; margin-right: 0}.dashboard-columns {grid-template-columns: 1fr}.secondary-column {display: grid; grid-template-columns: 1fr 1fr; gap: 22px}.upcoming-section {margin-top: 0}.margin-note {display: none}.dashboard-lower {gap: 22px}.dashboard-lower > section + section {padding-left: 22px}.today-stamp {display: none}.record-amount {font-size: 11px}}
 @media (max-width: 640px) {
   .app-shell {display: block}.sidebar {width: 100%; height: auto; position: static; padding: 18px 16px 0; border-right: 0; border-bottom: 1px solid var(--border)}
-  .brand {margin: 0 0 19px; font-size: 23px}.brand-caption {font-size: 9px}.brand-mark {height: 34px; width: 33px}.nav-label,.sidebar-later,.sidebar-footer {display: none}
+  .brand {margin: 0 0 19px; font-size: 23px}.brand-caption {font-size: 9px}.brand-mark {height: 34px; width: 33px}.nav-label,.sidebar-later {display: none}
+  .sidebar-footer {padding: 10px 0; margin: 0; gap: 8px}.sidebar-footer > div {display: flex; align-items: center; justify-content: space-between; flex: 1}
   nav {flex-direction: row; gap: 1px; overflow-x: auto; padding-bottom: 9px; scrollbar-width: none}
   nav::-webkit-scrollbar {display: none}
   .nav-item {flex-direction: column; gap: 5px; padding: 9px 7px; min-width: 54px; font-size: 9px; flex: 1}.nav-item:last-child {margin-top: 0}.nav-item svg {width: 18px}
-  .topbar {height: 65px; padding: 0 20px}.breadcrumb {font-size: 10px; gap: 8px}.capture-button {font-size: 11px; padding: 8px 10px}
+  .topbar {min-height: 65px; height: auto; padding: 12px 20px; flex-wrap: wrap}.breadcrumb {font-size: 10px; gap: 8px}.capture-button {font-size: 11px; padding: 8px 10px}.topbar-actions {margin-left: auto}
   main {padding: 28px 20px 0}.page-heading {margin-bottom: 28px; gap: 12px; flex-wrap: wrap}h1 {font-size: 27px}.eyebrow {font-size: 8px; letter-spacing: 1.2px}.page-subtitle {font-size: 11px}
   .dashboard-columns {gap: 28px}.secondary-column {display: block}.attention-section {padding: 20px}.upcoming-section {margin-top: 26px}
   .dashboard-lower {grid-template-columns: 1fr; gap: 27px; margin-top: 28px}.dashboard-lower > section + section {border-left: 0; padding: 26px 0 0; border-top: 1px solid var(--border)}
