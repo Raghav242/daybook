@@ -8,17 +8,21 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException
 
 from app.core.config import CORS_ORIGINS
-from app.core.errors import NotFound
+from app.core.errors import Conflict, NotFound
 from app.modules.auth.routes import router as auth
 from app.modules.auth.service import AuthError
 from app.modules.bills.routes import router as bills
+from app.modules.bills.routes import series_router as bill_series
+from app.modules.budget.routes import router as budget
 from app.modules.calendar.routes import router as calendar
 from app.modules.dashboard.routes import router as dashboard
 from app.modules.groceries.routes import router as groceries
+from app.modules.meals.routes import router as meals
 from app.modules.settings.routes import router as settings
 from app.modules.tasks.routes import router as tasks
+from app.modules.tasks.routes import series_router as task_series
 
-app = FastAPI(title="Daybook", version="0.2.0", description="Personal life dashboard")
+app = FastAPI(title="Daybook", version="0.3.0", description="Personal life dashboard")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -29,7 +33,18 @@ app.add_middleware(
 app.include_router(auth, prefix="/api")
 # Root auth endpoints are available for clients following the /auth contract.
 app.include_router(auth, include_in_schema=False)
-for router in [tasks, calendar, groceries, bills, settings, dashboard]:
+for router in [
+    tasks,
+    task_series,
+    calendar,
+    groceries,
+    bills,
+    bill_series,
+    meals,
+    budget,
+    settings,
+    dashboard,
+]:
     app.include_router(router, prefix="/api")
 
 
@@ -42,6 +57,13 @@ def health():
 async def not_found(request: Request, exc: NotFound):
     return JSONResponse(
         status_code=404, content={"error": {"code": "not_found", "message": str(exc)}}
+    )
+
+
+@app.exception_handler(Conflict)
+async def conflict(request: Request, exc: Conflict):
+    return JSONResponse(
+        status_code=409, content={"error": {"code": "conflict", "message": str(exc)}}
     )
 
 

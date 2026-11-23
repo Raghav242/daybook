@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Repeat, Trash2 } from 'lucide-react';
 import type { Module, RecordItem } from '../api/contracts';
 import { eventLabel, money, taskDeadline, titleOf } from '../domain';
 
@@ -11,11 +11,12 @@ export function RecordRow({ module, item, zone, compact = false, onEdit, onDelet
   if ('priority' in item) detail = [taskDeadline(item, zone), item.category, item.priority === 'high' ? 'High priority' : item.priority === 'low' ? 'Low priority' : ''].filter(Boolean).join(' · ');
   if ('start' in item) detail = eventLabel(item, zone);
   if ('quantity' in item) detail = [Number(item.quantity) + ' ' + item.unit, item.category].filter(Boolean).join(' · ');
-  if ('amount' in item) detail = 'Due ' + taskDeadline({ ...item, title: item.name, notes: '', due_at: null, category: '', priority: 'normal', completed: item.paid }, zone);
+  if ('amount' in item) detail = ['Due ' + taskDeadline({ ...item, title: item.name, notes: '', due_at: null, category: '', priority: 'normal', completed: item.paid }, zone), item.expense_id ? 'Recorded as spending' : ''].filter(Boolean).join(' · ');
+  const repeats = 'series_id' in item && Boolean(item.series_id);
   return <li className={'record-row' + (done ? ' done' : '')}>
     {module !== 'calendar' && <input className="record-check" type="checkbox" checked={done} disabled={busy} aria-label={'Mark ' + title + ' ' + (done ? 'not ' : '') + verb} onChange={() => onToggle(module, item)} />}
     {module === 'calendar' && <span className="agenda-marker" aria-hidden="true" />}
-    <div className="record-copy"><button className="record-title" disabled={busy} onClick={() => onEdit(module, item)}>{title}</button><span className="record-detail">{detail}</span></div>
+    <div className="record-copy"><button className="record-title" disabled={busy} onClick={() => onEdit(module, item)}>{title}</button><span className="record-detail">{repeats && <Repeat size={11} className="repeat-mark" aria-label="Repeats" />}{detail}</span></div>
     {'amount' in item && <span className="record-amount">{money(item.amount, item.currency)}</span>}
     {!compact && <div className="row-actions"><button className="icon-button" aria-label={'Edit ' + title} disabled={busy} onClick={() => onEdit(module, item)}><Pencil size={16} /></button><button className="icon-button" aria-label={'Delete ' + title} disabled={busy} onClick={() => onDelete(module, item)}><Trash2 size={16} /></button></div>}
   </li>;

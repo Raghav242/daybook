@@ -199,5 +199,109 @@ fieldset {border: 0; margin: 0; padding: 0; min-width: 0}
   .records-list .record-row:has(.row-actions) {flex-wrap: wrap}.records-list .record-row:has(.row-actions) .record-copy {min-width: 130px}
   .form-pair {grid-template-columns: 1fr; gap: 0}dialog {padding: 22px}.list-toolbar .muted {font-size: 10px}.tabs {gap: 2px}.tabs button {padding: 8px 9px}
 }
+/* Phase 2: planning, meals and budget. Same tokens, lines over cards. */
+.visually-hidden {position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap}
+.repeat-mark {display: inline; vertical-align: -1px; margin-right: 5px; color: var(--accent)}
+.dialog-lead {font-size: 12px; color: var(--muted); margin: -8px 0 18px; overflow-wrap: anywhere}
+.dialog-lead strong {color: #262b28; font-weight: 500}
+.scope-choice {border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px 2px; margin-bottom: 18px; background: #f7f6f0}
+.scope-choice legend {display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--accent); padding: 0 4px; font-weight: 500}
+.scope-choice .checkbox-label {margin-bottom: 10px}
+.inline-confirm {border: 1px solid #d9bbae; background: #f8efe9; border-radius: 6px; padding: 12px 14px; margin-top: 16px; font-size: 12px; color: #7c392e}
+.inline-confirm > div {display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap}
+.stop-link {margin-right: auto; color: #8b4437}
+.field-group-label {font-size: 11px; font-weight: 500; margin-bottom: 10px}
+.spaced-label {margin-top: 16px}
+.ingredient-rows li {display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(64px, .9fr) minmax(56px, .8fr) minmax(0, 1fr) 32px; gap: 6px; align-items: center; margin-bottom: 6px}
+.ingredient-rows label {margin: 0}
+.ingredient-rows input:not([type="checkbox"]) {padding: 8px 9px; min-height: 36px; font-size: 12px}
+.week-nav {display: flex; align-items: center; gap: 6px}
+.week-nav h2 {font-size: 14px; font-weight: 500; min-width: 150px; text-align: center}
+.week-nav .text-button {margin-left: 8px}
+.list-toolbar:has(.week-nav) {gap: 12px; flex-wrap: wrap}
+.week-plan {list-style: none; padding: 0; margin: 6px 0 0}
+.week-plan > li {display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 18px; padding: 14px 0; border-bottom: 1px solid #e5e3da}
+.week-plan > li.is-today .week-day strong {color: var(--accent)}
+.week-plan > li.is-today .week-day::before {content: ""; display: block; width: 18px; height: 2px; background: var(--accent); margin-bottom: 7px}
+.week-day strong {display: block; font-size: 12px; font-weight: 600}
+.week-day span {font-size: 10px; color: var(--muted)}
+.week-meals {display: flex; flex-direction: column; gap: 4px; min-width: 0; align-items: flex-start}
+.week-meals ul {width: 100%}
+.meal-row {display: flex; align-items: center; gap: 10px; padding: 4px 0; min-width: 0}
+.meal-row .record-title {min-width: 0}
+.meal-row .record-detail {margin: 0; flex-shrink: 0}
+.meal-row .icon-button {margin-left: auto}
+.meal-name {font-size: 10px; letter-spacing: .4px; color: var(--muted); width: 66px; flex-shrink: 0; text-transform: uppercase}
+.meal-added {width: 16px; display: inline-flex; color: var(--accent); flex-shrink: 0}
+.recipes-section {margin-top: 40px; padding-top: 26px; border-top: 1px solid var(--border)}
+.recipes-section .section-heading, .budget-expenses .section-heading, .budget-categories .section-heading {margin-bottom: 6px}
+.empty-state.compact {padding: 32px 20px}
+.preview-list {margin: 6px 0 4px; border-top: 1px solid var(--border)}
+.preview-list li {display: grid; grid-template-columns: 16px minmax(0, 1fr) 92px minmax(40px, auto); gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid #e5e3da}
+.preview-list li.excluded .preview-copy {opacity: .55}
+.preview-copy strong {display: block; font-size: 12px; font-weight: 500; overflow-wrap: anywhere}
+.preview-copy span {display: block; font-size: 10px; color: var(--muted); margin-top: 3px; overflow-wrap: anywhere}
+.preview-quantity {margin: 0; min-width: 0}
+.preview-quantity input {width: 100%; border: 1px solid #cccfc3; border-radius: 5px; background: #fffefa; color: #262b28; padding: 7px 8px; min-height: 34px; font-size: 13px; text-align: right; font-variant-numeric: tabular-nums}
+.preview-quantity input:disabled {opacity: .55}
+.preview-unit {font-size: 11px; color: var(--muted); overflow-wrap: anywhere}
+.budget-overview {display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(220px, 1fr); gap: 36px; margin: 26px 0 34px}
+.budget-totals {display: flex; flex-wrap: wrap; gap: 30px 44px}
+.budget-total strong {display: block; font-size: 30px; font-weight: 400; letter-spacing: -.8px; line-height: 1.15; font-variant-numeric: tabular-nums}
+.budget-total > span {display: block; font-size: 11px; color: var(--muted); margin-top: 6px}
+.budget-total .eyebrow {margin-bottom: 8px}
+.expected-bills {border-left: 1px solid var(--border); padding-left: 26px}
+.expected-bills .eyebrow {margin-bottom: 10px}
+.expected-bills > strong {display: block; font-size: 19px; font-weight: 400; font-variant-numeric: tabular-nums}
+.expected-bills > strong span {display: block; font-size: 10px; color: var(--muted); margin-top: 2px}
+.expected-bills ul {margin-top: 12px}
+.expected-bills li {display: flex; justify-content: space-between; gap: 10px; font-size: 11px; padding: 6px 0; border-bottom: 1px solid #e5e3da}
+.expected-bills li span:last-child {color: var(--muted); white-space: nowrap}
+.expected-bills small {display: block; font-size: 10px; color: var(--muted); margin-top: 12px}
+.budget-categories {border-top: 1px solid var(--border); padding-top: 26px}
+.category-row {display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(80px, 1fr) minmax(90px, auto) auto; gap: 16px; align-items: center; padding: 13px 0; border-bottom: 1px solid #e5e3da}
+.category-row:last-child {border-bottom: 0}
+.category-copy {min-width: 0}
+.category-name {font-size: 12px; font-weight: 500; overflow-wrap: anywhere}
+.category-name small {font-size: 9px; color: var(--muted); margin-left: 6px; letter-spacing: .5px}
+.category-row .record-amount {text-align: right; color: var(--muted)}
+.category-row.over .record-amount {color: #8b4437}
+.meter {height: 5px; border-radius: 3px; background: #e6e5dc; overflow: hidden}
+.meter span {display: block; height: 100%; background: #8aa27f; border-radius: 3px}
+.category-row.over .meter span {background: #b5826d}
+.budget-expenses {margin-top: 34px; padding-top: 26px; border-top: 1px solid var(--border)}
+.meals-today {border-bottom: 1px solid var(--border); padding-bottom: 22px; margin-bottom: 29px}
+.meals-today .quiet-empty {padding-top: 0}
+.meal-strip {display: flex; flex-wrap: wrap; gap: 10px 34px}
+.meal-strip li {min-width: 0}
+.meal-strip span {display: block; font-size: 9px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted)}
+.meal-strip strong {display: block; font-size: 13px; font-weight: 500; margin-top: 4px; overflow-wrap: anywhere}
+.meal-strip small {font-size: 10px; color: var(--muted)}
+.recurring-section .section-heading h2 {display: flex; gap: 7px; align-items: center; font-size: 15px}
+.recurring-section .section-heading h2 svg {color: var(--accent)}
+.recurring-section a {font-size: 11px; font-weight: 500; display: flex; align-items: center; gap: 7px; overflow-wrap: anywhere}
+.recurring-section a:hover {color: var(--accent); text-decoration: underline}
+.spend-summary {margin-bottom: 18px}
+.spend-summary .bill-summary {margin-top: 0}
+.section-note.still-due {margin-top: 6px}
+@media (max-width: 850px) {.budget-overview {grid-template-columns: 1fr; gap: 24px}.expected-bills {border-left: 0; padding-left: 0; border-top: 1px solid var(--border); padding-top: 20px}}
+@media (max-width: 640px) {
+  .week-plan > li {grid-template-columns: 1fr; gap: 6px}
+  .week-day {display: flex; gap: 8px; align-items: baseline}
+  .week-plan > li.is-today .week-day::before {display: none}
+  .meal-name {width: auto; min-width: 54px}
+  .meal-row {flex-wrap: wrap; row-gap: 2px}
+  .ingredient-rows li {grid-template-columns: minmax(0, 1fr) 72px 64px 32px}
+  .ingredient-rows .ingredient-category {display: none}
+  .preview-list li {grid-template-columns: 16px minmax(0, 1fr) 76px}
+  .preview-unit {grid-column: 3; font-size: 10px; text-align: right; margin-top: -6px}
+  .category-row {grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px}
+  .category-row .meter {grid-column: 1 / -1; grid-row: 2}
+  .category-row .row-actions {grid-column: 2; grid-row: 1}
+  .category-row .record-amount {grid-column: 1; grid-row: 3; text-align: left; font-size: 10px}
+  .budget-total strong {font-size: 26px}
+  .week-nav h2 {min-width: 0; font-size: 13px}
+  .list-toolbar:has(.week-nav) > .button {width: 100%}
+}
 @media (prefers-reduced-motion: reduce) {*,*::before,*::after {animation-duration: .01ms!important; transition-duration: .01ms!important; scroll-behavior: auto!important}}
 

@@ -1,4 +1,4 @@
-import type { AuthSession, Dashboard, Module, Page, RecordInput, Records, Settings } from './contracts';
+import type { AuthSession, Bill, Budget, BudgetInput, BudgetSummary, Dashboard, Expense, ExpenseInput, GroceryAdditionItem, GroceryAdditionResult, GroceryPreview, MealPlanEntry, MealPlanInput, Module, Page, PayInput, Recipe, RecipeInput, RecordInput, Records, RepeatingModule, Series, SeriesInputs, Settings } from './contracts';
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
 let csrfToken = '';
@@ -37,6 +37,7 @@ async function authenticate(mode: 'login' | 'register', username: string, passwo
   clearSession(); csrfToken = session.csrf_token;
   return session;
 }
+const seriesPath: Record<RepeatingModule, string> = { tasks: 'task-series', bills: 'bill-series' };
 export const api = {
   me: async (signal?: AbortSignal) => {
     const epoch = authEpoch;
@@ -60,5 +61,32 @@ export const api = {
   save: <K extends Module>(module: K, value: RecordInput, id?: string) =>
     request<Records[K]>('/' + module + (id ? '/' + id : ''), { method: id ? 'PUT' : 'POST', body: JSON.stringify(value) }),
   delete: (module: Module, id: string) => request<void>('/' + module + '/' + id, { method: 'DELETE' }),
+
+  // Repeating tasks and bills: a definition plus independent occurrence records.
+  createSeries: <K extends RepeatingModule>(module: K, value: SeriesInputs[K]) =>
+    request<Series<K>>('/' + seriesPath[module], { method: 'POST', body: JSON.stringify(value) }),
+  series: <K extends RepeatingModule>(module: K, id: string, signal?: AbortSignal) => request<Series<K>>('/' + seriesPath[module] + '/' + id, { signal }),
+  updateFuture: <K extends RepeatingModule>(module: K, occurrenceId: string, value: SeriesInputs[K]) =>
+    request<Series<K>>('/' + module + '/' + occurrenceId + '/future', { method: 'PUT', body: JSON.stringify(value) }),
+  stopSeries: (module: RepeatingModule, id: string) => request<void>('/' + seriesPath[module] + '/' + id, { method: 'DELETE' }),
+  payBill: (id: string, value: PayInput) => request<Bill>('/bills/' + id + '/pay', { method: 'POST', body: JSON.stringify(value) }),
+
+  recipes: (offset = 0, signal?: AbortSignal) => request<Page<Recipe>>('/recipes?' + new URLSearchParams({ offset: String(offset), limit: '100' }), { signal }),
+  saveRecipe: (value: RecipeInput, id?: string) => request<Recipe>('/recipes' + (id ? '/' + id : ''), { method: id ? 'PUT' : 'POST', body: JSON.stringify(value) }),
+  deleteRecipe: (id: string) => request<void>('/recipes/' + id, { method: 'DELETE' }),
+  mealPlan: (start: string, signal?: AbortSignal) => request<MealPlanEntry[]>('/meal-plan?' + new URLSearchParams({ start, days: '7' }), { signal }),
+  saveMeal: (value: MealPlanInput, id?: string) => request<MealPlanEntry>('/meal-plan' + (id ? '/' + id : ''), { method: id ? 'PUT' : 'POST', body: JSON.stringify(value) }),
+  deleteMeal: (id: string) => request<void>('/meal-plan/' + id, { method: 'DELETE' }),
+  groceryPreview: (entryIds: string[], signal?: AbortSignal) => request<GroceryPreview>('/meal-plan/grocery-preview', { method: 'POST', body: JSON.stringify({ entry_ids: entryIds }), signal }),
+  addGroceries: (requestId: string, entryIds: string[], items: GroceryAdditionItem[]) =>
+    request<GroceryAdditionResult>('/meal-plan/grocery-additions', { method: 'POST', body: JSON.stringify({ request_id: requestId, entry_ids: entryIds, items }) }),
+
+  budgetSummary: (month: string, signal?: AbortSignal) => request<BudgetSummary>('/budget/summary?month=' + month, { signal }),
+  expenses: (month: string, offset = 0, signal?: AbortSignal) => request<Page<Expense>>('/expenses?' + new URLSearchParams({ month, offset: String(offset), limit: '25' }), { signal }),
+  saveExpense: (value: ExpenseInput, id?: string) => request<Expense>('/expenses' + (id ? '/' + id : ''), { method: id ? 'PUT' : 'POST', body: JSON.stringify(value) }),
+  deleteExpense: (id: string) => request<void>('/expenses/' + id, { method: 'DELETE' }),
+  budgets: (signal?: AbortSignal) => request<Budget[]>('/budgets', { signal }),
+  saveBudget: (value: BudgetInput, id?: string) => request<Budget>('/budgets' + (id ? '/' + id : ''), { method: id ? 'PUT' : 'POST', body: JSON.stringify(value) }),
+  deleteBudget: (id: string) => request<void>('/budgets/' + id, { method: 'DELETE' }),
 };
 

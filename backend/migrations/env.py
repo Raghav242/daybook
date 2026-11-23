@@ -4,11 +4,18 @@ from sqlalchemy import create_engine, pool
 from app.core.config import DATABASE_URL
 from app.infrastructure.database import Base
 from app.modules.auth.models import AuthRateLimit, AuthSession, User  # noqa: F401
-from app.modules.bills.models import Bill  # noqa: F401
+from app.modules.bills.models import Bill, BillSeries  # noqa: F401
+from app.modules.budget.models import Budget, Expense  # noqa: F401
 from app.modules.calendar.models import CalendarEntry  # noqa: F401
 from app.modules.groceries.models import Grocery  # noqa: F401
+from app.modules.meals.models import (  # noqa: F401
+    GroceryImport,
+    MealPlanEntry,
+    Recipe,
+    RecipeIngredient,
+)
 from app.modules.settings.models import Settings  # noqa: F401
-from app.modules.tasks.models import Task  # noqa: F401
+from app.modules.tasks.models import Task, TaskSeries  # noqa: F401
 
 config = context.config
 target_metadata = Base.metadata

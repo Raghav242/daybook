@@ -12,11 +12,13 @@ Persisted task, calendar, grocery, bill, and preference workflows; dedicated vie
 
 Completion criteria: meaningful backend tests for persistence and constraints, timezone/date semantics, completion counts, exact unpaid totals, and CRUD; frontend tests for keyboard entry, failed requests, pending state, and date handling; visual inspection at desktop/mobile sizes and a create/edit/complete/delete browser workflow. See VERIFICATION.md for current evidence and any environment limits.
 
-## Phase 2 — Meals and budgeting
+## Phase 2 — Planning and organization (implemented)
 
-Meal plans, recipes, grocery-list generation, budget categories, and recurring bills. Decide recurrence timezone and end-of-month semantics before implementation.
+Daily, weekly and monthly recurring tasks and bills with independent occurrences, idempotent on-demand generation, "this occurrence" and "this and future" edits, and stop-repeating; recipes with servings and ingredients, a weekly meal planner, and scaled, unit-safe grocery previews reviewed before an idempotent addition; manual expenses, standing monthly category budgets, per-currency monthly summaries, and bill payments optionally recorded once as linked expenses; an overview with today's meals, repeating items, grocery needs and monthly spending. Recurrence uses profile-local calendar dates; month-end anchors clamp to the last day without drift.
 
-Completion criteria: a meal-to-grocery workflow with user-confirmed changes, decimal budget calculations with explicit currency boundaries, idempotent recurring bill generation, migrations, and no automatic payment movement.
+Completion criteria met: a meal-to-grocery workflow with user-confirmed changes, decimal budget calculations with explicit currency boundaries, idempotent recurring generation, a reversible migration with documented data loss on downgrade, and no automatic payment movement. See VERIFICATION.md.
+
+Deferred from Phase 2: several weekdays per weekly series, yearly or "nth weekday" rules, timed recurring tasks, per-month budget amounts and budget history, unit conversion, pantry tracking, and background generation.
 
 ## Phase 3 — Documents and retrieval
 

@@ -13,5 +13,5 @@ class Settings(Base):
     timezone: Mapped[str] = mapped_column(String(80), default="America/New_York")
     default_currency: Mapped[str] = mapped_column(String(3), default="USD")
     enabled_modules: Mapped[list] = mapped_column(
-        JSON, default=lambda: ["tasks", "calendar", "groceries", "bills"]
+        JSON, default=lambda: ["tasks", "calendar", "groceries", "bills", "meals", "budget"]
     )

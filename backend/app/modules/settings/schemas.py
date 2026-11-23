@@ -5,13 +5,14 @@ from pydantic import Field, field_validator
 
 from app.core.schemas import Input, Output
 
+ModuleName = Literal["tasks", "calendar", "groceries", "bills", "meals", "budget"]
+ALL_MODULES = ["tasks", "calendar", "groceries", "bills", "meals", "budget"]
+
 
 class SettingsInput(Input):
     timezone: str = Field(default="America/New_York", max_length=80)
     default_currency: str = Field(default="USD", pattern=r"^[A-Z]{3}$")
-    enabled_modules: list[Literal["tasks", "calendar", "groceries", "bills"]] = Field(
-        default_factory=lambda: ["tasks", "calendar", "groceries", "bills"]
-    )
+    enabled_modules: list[ModuleName] = Field(default_factory=lambda: list(ALL_MODULES))
 
     @field_validator("timezone")
     @classmethod

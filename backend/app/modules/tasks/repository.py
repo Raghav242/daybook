@@ -4,7 +4,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import NotFound
-from app.modules.tasks.models import Task
+from app.modules.recurrence.repository import SeriesRepository
+from app.modules.tasks.models import Task, TaskSeries
 
 
 class TaskRepository:
@@ -50,3 +51,9 @@ class TaskRepository:
             raise NotFound("This record could not be found.")
         self.session.delete(record)
         self.session.commit()
+
+
+class TaskSeriesRepository(SeriesRepository):
+    series_model = TaskSeries
+    occurrence_model = Task
+    done_field = "completed"

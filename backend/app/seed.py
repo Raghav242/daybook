@@ -6,13 +6,14 @@ from decimal import Decimal
 from uuid import NAMESPACE_URL, uuid5
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database import engine
 from app.modules.auth.models import User
 from app.modules.auth.service import normalize_username
 from app.modules.bills.models import Bill
+from app.modules.budget.models import Expense
 from app.modules.calendar.models import CalendarEntry
 from app.modules.groceries.models import Grocery
 from app.modules.settings.repository import SettingsRepository
@@ -166,6 +167,13 @@ def seed(owner, clear=False):
                 "daybook:sample:" + str(user.id) + ":" + model.__tablename__ + ":" + key,
             )
             if clear:
+                if model is Bill:
+                    # A payment recorded as an expense is personal spending; keep it.
+                    session.execute(
+                        update(Expense)
+                        .where(Expense.bill_id == record_id, Expense.user_id == user.id)
+                        .values(bill_id=None)
+                    )
                 result = session.execute(
                     delete(model).where(model.id == record_id, model.user_id == user.id)
                 )

@@ -1,6 +1,6 @@
 # Daybook
 
-A personal, multi-user dashboard for tasks, an agenda calendar, groceries, and bills. Phase 0 and Phase 1 are implemented. Warm ivory surfaces, locally bundled Inter, a composed dashboard, responsive navigation, and explicit quick capture keep everyday work easy to find.
+A personal, multi-user dashboard for tasks, an agenda calendar, groceries, bills, meals and budgets. Phases 0, 1 and 2 are implemented: Phase 2 adds recurring tasks and bills, recipes with a weekly meal planner and reviewed grocery generation, and manual expense and budget tracking. Warm ivory surfaces, locally bundled Inter, a composed dashboard, responsive navigation, and explicit quick capture keep everyday work easy to find.
 
 ## Run with Docker Compose (recommended)
 
@@ -151,12 +151,16 @@ docker compose logs --tail=30 backend
 
 An ordinary `docker compose restart` does not apply changed container environment variables. The password update/recreation preserves existing records. Do not remove the database volume as part of a password change.
 
-Explicit migration commands:
+Explicit migration commands (Phase 2 adds migration `0004`; back up first, as with any schema change):
 
 ```powershell
 docker compose exec backend alembic upgrade head
 docker compose exec backend alembic current
+# Roll back Phase 2 only if needed (deletes Phase 2 records, see below):
+docker compose exec backend alembic downgrade 0003
 ```
+
+Migration `0004` preserves all existing records: existing tasks and bills become standalone (non-repeating) records, and accounts with saved preferences get the new Meals and Budget modules switched on (turn them off in Settings). Downgrading to `0003` **permanently deletes** recipes, meal plans, grocery-addition receipts, expenses, budgets and repeat definitions; already generated task and bill occurrences remain as ordinary tasks and bills, and Meals/Budget are removed from preferences. Offline `alembic upgrade --sql` scripts cannot update stored preferences.
 
 Optional realistic samples, relative to the profile's current local date:
 
@@ -260,29 +264,37 @@ The production frontend bundle is created in `frontend/dist` and copied into the
 
 ## Everyday workflows
 
-- **Overview:** persisted counts, today's overlapping events, prioritized open tasks, overdue items, upcoming plans, grocery items, and unpaid bill totals due through 30 days from today.
+- **Overview:** persisted counts, today's overlapping events, today's planned meals, prioritized open tasks (later occurrences of repeating tasks are left out), overdue items, upcoming plans, repeating tasks and bills due within a week (overdue first), grocery items, this month's recorded spending per currency, and unpaid bill totals due through 30 days from today, shown separately from spending.
 - **Quick capture:** choose Tasks, Calendar, Groceries, or Bills, then enter the corresponding fields. No AI extraction.
 - **Tasks:** create/edit, mark complete or reopen, filter completed/open, and delete with confirmation.
 - **Calendar:** an agenda grouped by date with Upcoming, Past, and All filters. Upcoming includes ongoing events. Edit or delete each event.
 - **Groceries:** quantities with units and categories; mark purchased or unpurchase; filters and CRUD.
 - **Bills:** exact decimal amounts and currency codes; mark paid/unpaid; filters and CRUD. No payments are initiated.
-- **Settings:** IANA timezone, default currency, and enabled modules. Disabled modules retain their data.
+- **Repeating tasks and bills:** choose *Repeats* (daily, weekly or monthly, every N, optional end date) when adding a task or bill. Each occurrence is a normal record you complete, pay, edit or delete on its own. When editing an occurrence choose *Only this occurrence* or *This and future occurrences*; *Stop repeating…* removes upcoming open occurrences and keeps completed, paid and overdue ones.
+- **Paying bills:** ticking a bill opens *Mark bill paid*. Optionally record the payment as one linked expense (category and date). Repeating the request never creates a second expense. To mark such a bill unpaid, delete its expense first, so it is never counted as both spent and owed. Daybook records payments; it never moves money or connects to banks.
+- **Meals:** save recipes with servings and ingredient quantities, plan them into a Monday–Sunday week (breakfast, lunch, dinner, snack) with their own servings, then choose *Make grocery list*. The review dialog shows scaled, merged quantities you can edit or leave out before adding. Meals already added are marked and never added twice; existing grocery items are never changed.
+- **Budget:** record expenses (amount, currency, category, date, note) and standing monthly category budgets. The month view shows spending, remaining budget and spending outside budgets per currency, with unpaid bills due that month listed separately.
+- **Settings:** IANA timezone, default currency, and enabled modules (Tasks, Calendar, Groceries, Bills, Meals, Budget). Disabled modules retain their data and are hidden from navigation and the overview.
 
 Lists have 25-record pages, with bounded API pagination up to 100. Dashboard lists are intentionally compact; totals count every matching persisted record. Failed form saves keep input. Pending saves disable duplicate submissions; success and error messages are announced. Escape closes idle dialogs, focus stays in modal dialogs and returns to the trigger, and keyboard focus is visible.
 
 ## Data assumptions and limitations
 
 - Accounts use session authentication and isolated personal records. Production requires HTTPS and correctly configured cookie/CORS settings.
-- Defaults: `America/New_York`, `USD`, all four modules enabled. Set your timezone in Settings before entering timed events.
+- Defaults: `America/New_York`, `USD`, all six modules enabled. Set your timezone in Settings before entering timed events.
 - Tasks have either `due_date` (a calendar date), `due_at` (an aware instant), or neither. Today's task count includes open overdue tasks and today's deadlines. Overdue task attention uses deadlines before today's local midnight.
 - Timed events are stored as UTC instants and rendered in the profile's timezone. Task timed deadlines follow the same convention.
 - All-day events have stable `start_date` and **exclusive** `end_date`; changing timezone never shifts those dates. UTC start/end instants are also retained. For a one-day event on October 2, enter October 2 through October 3.
 - The time editor rejects nonexistent daylight-saving times. Ambiguous fall-back times use the timezone library's default occurrence; explicit offset selection is not implemented.
 - Amounts and quantities use decimal strings in API contracts and SQL numeric columns. Bills support nonnegative amounts with two decimal places; three-letter uppercase currency codes are accepted. No currency conversion is performed. Totals stay separate by currency.
-- Deletions are permanent after confirmation. There are no cross-record foreign keys or cascades in Phase 1. Settings are a singleton preference resource accessed through GET/PUT.
+- Deletions are permanent after confirmation. Phase 2 relationships (occurrence → series, ingredient and meal → recipe, expense → bill) use same-owner composite foreign keys. Deleting a bill keeps its linked expense as spending. Settings are a singleton preference resource accessed through GET/PUT.
 - Each write commits once; sample data is inserted/cleared in one transaction. Concurrent edits use last-write-wins; offline browser edits and conflict resolution are later work.
 - “Local-first” means the local API/database owns data and the app requires no cloud services. A service worker or disconnected-browser synchronization is not included.
-- Documents, meal planning, budgeting, RAG, assistants, integrations, and MCP are recorded in [ROADMAP.md](ROADMAP.md); their services are not installed or running.
+- **Recurrence:** occurrences are calendar dates, never instants; timed repeating tasks are not supported. "Today" is the profile timezone's local date, and changing the timezone never shifts stored occurrence dates. Weekly series repeat on the start date's weekday (one weekday per series). Monthly series always derive from the start date: an anchor on the 29th–31st falls on the last day of shorter months (Jan 31 → Feb 28/29 → Mar 31) without drifting.
+- Occurrences are generated on demand when tasks, bills, the budget summary or the overview load, up to 42 days ahead; there are no background jobs. Generation is idempotent (one row per series and date, enforced by a unique key) and safe under concurrent requests. New series never backfill dates before today. A deleted occurrence is not recreated, except that *This and future* rebuilds upcoming open occurrences from the new rule. *This and future* keeps earlier occurrences and every completed or paid one; open overdue occurrences keep their dates and take the new details.
+- **Meals:** quantities scale by planned ÷ recipe servings and round half-up to 0.001 (never to zero). Ingredients merge only when the name (ignoring case and spacing) and unit match; a small table recognizes spellings of the *same* unit (g/grams, tbsp/tablespoons, cup/cups). No conversions are made, so cups and grams stay on separate lines. Changing a planned meal after its groceries were added does not adjust the grocery list. Deleting a recipe removes its planned meals but keeps added groceries.
+- **Money:** expenses, budgets and bills use exact decimals. Budgets are standing monthly limits per category and currency, so past months are shown against current budget amounts. Categories match ignoring case and spacing. Currencies are never summed or converted. Paid bills without a recorded expense are not counted as spending.
+- Documents, RAG, assistants, external calendar integrations, background jobs and MCP are recorded in [ROADMAP.md](ROADMAP.md); their services are not installed or running.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for dependency direction and [VERIFICATION.md](VERIFICATION.md) for the checks performed in this workspace.
 
