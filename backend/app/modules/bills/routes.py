@@ -15,6 +15,7 @@ from app.modules.bills.schemas import (
     PayInput,
 )
 from app.modules.bills.service import BillService
+from app.modules.categories.routes import get_service as get_categories
 from app.modules.recurrence.service import RecurrenceService
 from app.modules.settings.repository import SettingsRepository
 from app.modules.settings.service import SettingsService
@@ -31,7 +32,11 @@ def get_recurrence(session: Session = Depends(get_session), user=Depends(current
 
 
 def get_service(session: Session = Depends(get_session), user=Depends(current_user)):
-    return BillService(BillRepository(session, user.id), get_recurrence(session, user))
+    return BillService(
+        BillRepository(session, user.id),
+        get_categories(session, user),
+        get_recurrence(session, user),
+    )
 
 
 class Page(BaseModel):

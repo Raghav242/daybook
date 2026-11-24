@@ -5,8 +5,9 @@ from app.core.config import DATABASE_URL
 from app.infrastructure.database import Base
 from app.modules.auth.models import AuthRateLimit, AuthSession, User  # noqa: F401
 from app.modules.bills.models import Bill, BillSeries  # noqa: F401
-from app.modules.budget.models import Budget, Expense  # noqa: F401
+from app.modules.budget.models import Budget, Expense, Income  # noqa: F401
 from app.modules.calendar.models import CalendarEntry  # noqa: F401
+from app.modules.categories.models import Category  # noqa: F401
 from app.modules.groceries.models import Grocery  # noqa: F401
 from app.modules.meals.models import (  # noqa: F401
     GroceryImport,

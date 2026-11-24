@@ -9,6 +9,7 @@ cups and grams, or pieces and kilograms, stay on separate lines for the user to 
 
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
+from uuid import UUID
 
 QUANTUM = Decimal("0.001")
 
@@ -58,8 +59,9 @@ class Ingredient:
     name: str
     quantity: Decimal
     unit: str
-    category: str
+    category: str  # display name of the grocery category, "" when none
     source: str
+    category_id: UUID | None = None
 
 
 @dataclass
@@ -70,6 +72,7 @@ class Line:
     quantity: Decimal
     category: str
     sources: list[str] = field(default_factory=list)
+    category_id: UUID | None = None
     # True when another line has the same ingredient name in a different unit.
     other_units: bool = False
 
@@ -87,9 +90,11 @@ def merge(ingredients: list[Ingredient]) -> list[Line]:
                 unit=" ".join(item.unit.split()),
                 quantity=Decimal(0),
                 category=item.category,
+                category_id=item.category_id,
             )
         line.quantity += item.quantity
-        line.category = line.category or item.category
+        if line.category_id is None and item.category_id is not None:
+            line.category, line.category_id = item.category, item.category_id
         if item.source not in line.sources:
             line.sources.append(item.source)
     names: dict[str, int] = {}

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.infrastructure.database import get_session
 from app.modules.auth.dependencies import current_user
+from app.modules.categories.routes import get_service as get_categories
 from app.modules.groceries.repository import GroceryRepository
 from app.modules.groceries.schemas import GroceryInput, GroceryOutput
 from app.modules.groceries.service import GroceryService
@@ -14,7 +15,7 @@ router = APIRouter(prefix="/groceries", tags=["groceries"])
 
 
 def get_service(session: Session = Depends(get_session), user=Depends(current_user)):
-    return GroceryService(GroceryRepository(session, user.id))
+    return GroceryService(GroceryRepository(session, user.id), get_categories(session, user))
 
 
 class Page(BaseModel):

@@ -7,9 +7,9 @@ import App from './App';
 
 vi.mock('../shared/api/client', async importOriginal => {
   const original = await importOriginal<typeof import('../shared/api/client')>();
-  return {...original, api: {...original.api, me: vi.fn(), login: vi.fn(), register: vi.fn(), logout: vi.fn(), settings: vi.fn(), dashboard: vi.fn()}};
+  return {...original, api: {...original.api, me: vi.fn(), login: vi.fn(), register: vi.fn(), logout: vi.fn(), settings: vi.fn(), dashboard: vi.fn(), categories: vi.fn()}};
 });
-vi.mock('../features/dashboard', () => ({default: ({data}: {data: Dashboard}) => <div>{data.tasks.map(task => <p key={task.id}>{task.title}</p>)}</div>}));
+vi.mock('../features/today', () => ({default: ({data}: {data: Dashboard}) => <div>{data.due_today.map(task => <p key={task.id}>{task.title}</p>)}</div>}));
 const alice = {id: 'alice', username: 'Alice'};
 const bob = {id: 'bob', username: 'Bob'};
 const settings = {timezone: 'UTC', default_currency: 'USD', enabled_modules: []};
@@ -19,11 +19,11 @@ test('private content waits for session validation', async () => {
   let complete!: (value: AuthSession) => void;
   vi.mocked(api.me).mockReturnValue(new Promise(resolve => {complete = resolve;}));
   vi.mocked(api.settings).mockResolvedValue(settings);
-  vi.mocked(api.dashboard).mockResolvedValue({tasks: []} as unknown as Dashboard);
+  vi.mocked(api.dashboard).mockResolvedValue({due_today: []} as unknown as Dashboard);
   render(<App/>);
   expect(screen.getByRole('status')).toHaveTextContent('Opening your Daybook');
   expect(api.settings).not.toHaveBeenCalled();
-  expect(screen.queryByText('Quick capture')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', {name: 'Add'})).not.toBeInTheDocument();
   await act(async () => complete({user: alice, csrf_token: 'csrf'}));
   expect(await screen.findByText('Alice')).toBeInTheDocument();
 });
@@ -32,12 +32,13 @@ test('logout and account changes discard cached private records, including late 
   const user = userEvent.setup();
   vi.mocked(api.me).mockResolvedValue({user: alice, csrf_token: 'csrf'});
   vi.mocked(api.settings).mockResolvedValue(settings);
-  vi.mocked(api.dashboard).mockResolvedValue({tasks: [{id: 'a', title: 'Alice private record'}]} as unknown as Dashboard);
+  vi.mocked(api.dashboard).mockResolvedValue({due_today: [{id: 'a', title: 'Alice private record'}]} as unknown as Dashboard);
   vi.mocked(api.logout).mockResolvedValue(undefined);
   vi.mocked(api.login).mockResolvedValue({user: bob, csrf_token: 'bob-csrf'});
   render(<App/>);
   expect(await screen.findByText('Alice private record')).toBeInTheDocument();
-  await user.click(screen.getByRole('button', {name: 'Log out'}));
+  await user.click(screen.getByRole('button', {name: /account menu/}));
+  await user.click(screen.getByRole('menuitem', {name: 'Log out'}));
   expect(await screen.findByRole('button', {name: 'Sign in'})).toBeInTheDocument();
   expect(screen.queryByText('Alice private record')).not.toBeInTheDocument();
   let complete!: (value: Dashboard) => void;
@@ -47,7 +48,7 @@ test('logout and account changes discard cached private records, including late 
   await user.click(screen.getByRole('button', {name: 'Sign in'}));
   expect(await screen.findByText('Bob')).toBeInTheDocument();
   expect(screen.queryByText('Alice private record')).not.toBeInTheDocument();
-  await act(async () => complete({tasks: [{id: 'b', title: 'Bob private record'}]} as unknown as Dashboard));
+  await act(async () => complete({due_today: [{id: 'b', title: 'Bob private record'}]} as unknown as Dashboard));
   expect(await screen.findByText('Bob private record')).toBeInTheDocument();
   expect(screen.queryByText('Alice private record')).not.toBeInTheDocument();
 });
@@ -56,7 +57,7 @@ test('expired sessions unmount private data and preserve usernames after invalid
   const user = userEvent.setup();
   vi.mocked(api.me).mockResolvedValue({user: alice, csrf_token: 'csrf'});
   vi.mocked(api.settings).mockResolvedValue(settings);
-  vi.mocked(api.dashboard).mockResolvedValue({tasks: [{id: 'a', title: 'Alice private record'}]} as unknown as Dashboard);
+  vi.mocked(api.dashboard).mockResolvedValue({due_today: [{id: 'a', title: 'Alice private record'}]} as unknown as Dashboard);
   vi.mocked(api.login).mockRejectedValue(new ApiError('Invalid username or password.', 401));
   render(<App/>);
   await screen.findByText('Alice private record');
@@ -81,17 +82,18 @@ test('an old account request completing after a new login cannot repopulate priv
   vi.mocked(api.settings).mockResolvedValue(settings);
   vi.mocked(api.dashboard)
     .mockReturnValueOnce(new Promise(resolve => {completeOldRequest = resolve;}))
-    .mockResolvedValue({tasks: [{id: 'b', title: 'Bob current record'}]} as unknown as Dashboard);
+    .mockResolvedValue({due_today: [{id: 'b', title: 'Bob current record'}]} as unknown as Dashboard);
   vi.mocked(api.logout).mockResolvedValue(undefined);
   vi.mocked(api.login).mockResolvedValue({user: bob, csrf_token: 'bob-csrf'});
   render(<App/>);
   await screen.findByText('Alice');
-  await user.click(screen.getByRole('button', {name: 'Log out'}));
+  await user.click(screen.getByRole('button', {name: /account menu/}));
+  await user.click(screen.getByRole('menuitem', {name: 'Log out'}));
   await user.type(await screen.findByLabelText('Username'), 'Bob');
   await user.type(screen.getByLabelText('Password'), 'test-passphrase-123');
   await user.click(screen.getByRole('button', {name: 'Sign in'}));
   await screen.findByText('Bob current record');
-  await act(async () => completeOldRequest({tasks: [{id: 'a', title: 'Alice late private record'}]} as unknown as Dashboard));
+  await act(async () => completeOldRequest({due_today: [{id: 'a', title: 'Alice late private record'}]} as unknown as Dashboard));
   expect(screen.queryByText('Alice late private record')).not.toBeInTheDocument();
   expect(screen.getByText('Bob current record')).toBeInTheDocument();
 });

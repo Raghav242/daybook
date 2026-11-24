@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.infrastructure.database import get_session
 from app.modules.auth.dependencies import current_user
+from app.modules.categories.routes import get_service as get_categories
 from app.modules.meals.repository import MealsRepository
 from app.modules.meals.schemas import (
     AdditionInput,
@@ -24,7 +25,7 @@ router = APIRouter(tags=["meals"])
 
 
 def get_service(session: Session = Depends(get_session), user=Depends(current_user)):
-    return MealsService(MealsRepository(session, user.id))
+    return MealsService(MealsRepository(session, user.id), get_categories(session, user))
 
 
 @router.get("/recipes", response_model=RecipePage)

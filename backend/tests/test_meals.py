@@ -2,7 +2,7 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
-from conftest import authenticate
+from conftest import authenticate, category_id
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
 
@@ -43,12 +43,14 @@ def test_merging_requires_matching_names_and_units():
 
 
 def make_recipe(client, **overrides):
+    pantry = category_id(client, "grocery", "Pantry")
+    dairy = category_id(client, "grocery", "Dairy & Eggs")
     body = {
         "name": "Pancakes",
         "servings": 4,
         "ingredients": [
-            {"name": "Flour", "quantity": "200", "unit": "g", "category": "Pantry"},
-            {"name": "Milk", "quantity": "1.5", "unit": "cups", "category": "Fridge"},
+            {"name": "Flour", "quantity": "200", "unit": "g", "category_id": pantry},
+            {"name": "Milk", "quantity": "1.5", "unit": "cups", "category_id": dairy},
             {"name": "Egg", "quantity": "2", "unit": ""},
         ],
         **overrides,
@@ -116,14 +118,19 @@ def test_weekly_plan_and_scaled_preview(client):
 def test_repeated_grocery_submissions_add_items_once(client):
     recipe = make_recipe(client)
     entry = plan(client, recipe, 4)
+    mine = category_id(client, "grocery", "Mine")
     manual = client.post(
-        "/api/groceries", json={"name": "Flour", "quantity": "1", "unit": "kg", "category": "Mine"}
+        "/api/groceries",
+        json={"name": "Flour", "quantity": "1", "unit": "kg", "category_id": mine},
     ).json()
     preview = client.post("/api/meal-plan/grocery-preview", json={"entry_ids": [entry["id"]]})
-    reviewed = [
-        {k: item[k] for k in ("name", "quantity", "unit", "category")}
-        for item in preview.json()["items"]
-    ]
+    lines = preview.json()["items"]
+    assert {line["name"]: line["category"] for line in lines} == {
+        "Flour": "Pantry",
+        "Milk": "Dairy & Eggs",
+        "Egg": "",
+    }
+    reviewed = [{k: item[k] for k in ("name", "quantity", "unit", "category_id")} for item in lines]
     next(item for item in reviewed if item["name"] == "Flour")["quantity"] = "150"  # reviewed
     body = {"request_id": str(uuid4()), "entry_ids": [entry["id"]], "items": reviewed}
     first = client.post("/api/meal-plan/grocery-additions", json=body)
@@ -209,7 +216,6 @@ def test_meals_are_isolated_between_accounts(raw_client):
             name="Forged",
             quantity=Decimal(1),
             unit="",
-            category="",
         )
     )
     with pytest.raises(IntegrityError):

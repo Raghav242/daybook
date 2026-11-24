@@ -1,14 +1,18 @@
 from uuid import UUID
 
 from app.core.errors import NotFound
+from app.modules.categories.service import CategoryService
 from app.modules.groceries.models import Grocery
 from app.modules.groceries.repository import GroceryRepository
 from app.modules.groceries.schemas import GroceryInput
 
 
 class GroceryService:
-    def __init__(self, repository: GroceryRepository):
+    def __init__(self, repository: GroceryRepository, categories: CategoryService):
+        if repository.user_id != categories.repository.user_id:
+            raise ValueError("Groceries and categories must use the same authenticated owner.")
         self.repository = repository
+        self.categories = categories
 
     def list(self, offset: int, limit: int, status: bool | None):
         return self.repository.list(offset, limit, status)
@@ -20,10 +24,12 @@ class GroceryService:
         return record
 
     def create(self, data: GroceryInput):
+        self.categories.require("grocery", data.category_id, optional=True)
         return self.repository.save(Grocery(user_id=self.repository.user_id, **data.model_dump()))
 
     def update(self, record_id: UUID, data: GroceryInput):
         record = self.get(record_id)
+        self.categories.require("grocery", data.category_id, record.category_id, optional=True)
         for key, value in data.model_dump().items():
             setattr(record, key, value)
         return self.repository.save(record)

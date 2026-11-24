@@ -1,6 +1,6 @@
 # Daybook
 
-A personal, multi-user dashboard for tasks, an agenda calendar, groceries, bills, meals and budgets. Phases 0, 1 and 2 are implemented: Phase 2 adds recurring tasks and bills, recipes with a weekly meal planner and reviewed grocery generation, and manual expense and budget tracking. Warm ivory surfaces, locally bundled Inter, a composed dashboard, responsive navigation, and explicit quick capture keep everyday work easy to find.
+A personal, multi-user organizer for your day, plans and money: tasks, an agenda calendar, meals and groceries, bills, expenses, income and budgets. Phases 0, 1 and 2 are implemented, plus the "Everyday" redesign: a Today screen, four sections (Today, Plan, Money, Library), one Add action, shared category lists and manual income tracking. The interface uses locally bundled Newsreader (titles and date headings) and Inter (everything else), a warm near-white light theme and one ink-blue accent.
 
 ## Run with Docker Compose (recommended)
 
@@ -151,14 +151,19 @@ docker compose logs --tail=30 backend
 
 An ordinary `docker compose restart` does not apply changed container environment variables. The password update/recreation preserves existing records. Do not remove the database volume as part of a password change.
 
-Explicit migration commands (Phase 2 adds migration `0004`; back up first, as with any schema change):
+Explicit migration commands (Phase 2 adds migration `0004`; the redesign adds `0005` for categories and income). Back up first, as with any schema change:
 
 ```powershell
+docker compose exec db pg_dump -U daybook daybook > daybook-backup.sql
 docker compose exec backend alembic upgrade head
 docker compose exec backend alembic current
+# Roll back categories and income only if needed (deletes income, see below):
+docker compose exec backend alembic downgrade 0004
 # Roll back Phase 2 only if needed (deletes Phase 2 records, see below):
 docker compose exec backend alembic downgrade 0003
 ```
+
+Migration `0005` keeps every record and its category. Each existing free-text category becomes a category in the matching list (tasks, groceries and recipe aisles, or expenses and budgets, which share one list). Only values that differ by case or spacing are merged ("Coffee" and " coffee "), named after the most common spelling; a value equal to a starting category ("groceries") joins it. Every account also receives the starting lists. Downgrading to `0004` writes category names back into the text columns, and **permanently deletes** income records, unused categories and archive flags; merged spellings come back as the single merged name. `0005` must run against a live database; offline `--sql` generation is refused because it rewrites rows.
 
 Migration `0004` preserves all existing records: existing tasks and bills become standalone (non-repeating) records, and accounts with saved preferences get the new Meals and Budget modules switched on (turn them off in Settings). Downgrading to `0003` **permanently deletes** recipes, meal plans, grocery-addition receipts, expenses, budgets and repeat definitions; already generated task and bill occurrences remain as ordinary tasks and bills, and Meals/Budget are removed from preferences. Offline `alembic upgrade --sql` scripts cannot update stored preferences.
 
@@ -264,8 +269,9 @@ The production frontend bundle is created in `frontend/dist` and copied into the
 
 ## Everyday workflows
 
-- **Overview:** persisted counts, today's overlapping events, today's planned meals, prioritized open tasks (later occurrences of repeating tasks are left out), overdue items, upcoming plans, repeating tasks and bills due within a week (overdue first), grocery items, this month's recorded spending per currency, and unpaid bill totals due through 30 days from today, shown separately from spending.
-- **Quick capture:** choose Tasks, Calendar, Groceries, or Bills, then enter the corresponding fields. No AI extraction.
+- **Navigation:** phones get four labeled bottom tabs (Today, Plan, Money, Library) with section links at the top of Plan (Tasks, Calendar, Meals, Groceries) and Money (Overview, Transactions, Budgets, Bills). Desktop uses the same structure in a compact sidebar. Settings and Log out are in the profile menu. Every page has a link (`#today`, `#tasks`, `#money`, `#transactions`, …); older links such as `#dashboard` and `#budget` still work. Sections whose modules are all turned off are hidden.
+- **Today:** a dated heading; *Needs attention* only when something is overdue or over budget; one schedule combining timed events and timed tasks on a timeline, with date-only tasks and bills under *Due today*; *Anytime* for undated tasks; one *Coming up* list (events, dated and repeating tasks, bills for the next 7 days); and a short *At a glance* for meals, groceries and money when there is something to show. Previews are limited and link to the full lists. A new account sees a single starting state instead.
+- **Add:** one Add button (sidebar on desktop, floating above the tab bar on phones) opens a dialog, or a bottom sheet on phones, for a Task, Event, Grocery, Expense, Income or Bill. Essential fields come first; notes, priority and repeat rules are under *More details*. No AI extraction.
 - **Tasks:** create/edit, mark complete or reopen, filter completed/open, and delete with confirmation.
 - **Calendar:** an agenda grouped by date with Upcoming, Past, and All filters. Upcoming includes ongoing events. Edit or delete each event.
 - **Groceries:** quantities with units and categories; mark purchased or unpurchase; filters and CRUD.
@@ -273,8 +279,9 @@ The production frontend bundle is created in `frontend/dist` and copied into the
 - **Repeating tasks and bills:** choose *Repeats* (daily, weekly or monthly, every N, optional end date) when adding a task or bill. Each occurrence is a normal record you complete, pay, edit or delete on its own. When editing an occurrence choose *Only this occurrence* or *This and future occurrences*; *Stop repeating…* removes upcoming open occurrences and keeps completed, paid and overdue ones.
 - **Paying bills:** ticking a bill opens *Mark bill paid*. Optionally record the payment as one linked expense (category and date). Repeating the request never creates a second expense. To mark such a bill unpaid, delete its expense first, so it is never counted as both spent and owed. Daybook records payments; it never moves money or connects to banks.
 - **Meals:** save recipes with servings and ingredient quantities, plan them into a Monday–Sunday week (breakfast, lunch, dinner, snack) with their own servings, then choose *Make grocery list*. The review dialog shows scaled, merged quantities you can edit or leave out before adding. Meals already added are marked and never added twice; existing grocery items are never changed.
-- **Budget:** record expenses (amount, currency, category, date, note) and standing monthly category budgets. The month view shows spending, remaining budget and spending outside budgets per currency, with unpaid bills due that month listed separately.
-- **Settings:** IANA timezone, default currency, and enabled modules (Tasks, Calendar, Groceries, Bills, Meals, Budget). Disabled modules retain their data and are hidden from navigation and the overview.
+- **Money:** for the selected month and currency, *Overview* shows income received, expenses recorded and net cash flow (income minus expenses, explicitly not a balance), unpaid bills separately, and budget progress by expense category. *Transactions* lists expenses and income together with All / Expenses / Income filters. *Budgets* manages standing monthly limits. Income is entered manually (amount, currency, received date, source, note); refunds and transfers are not income.
+- **Categories:** tasks, groceries (and recipe aisles), expenses and budgets, and income each pick from a dropdown with starting lists (for example Housing … Other for expenses; Salary, Part-time Work, Scholarship, Freelance, Gift, Other for income). *Add category* inside the selector saves a category for your account only. Long lists become searchable. In Settings → Categories you can rename, archive or restore; archived categories stay on existing records but are not offered for new ones.
+- **Settings:** IANA timezone, default currency, enabled modules (Tasks, Calendar, Groceries, Bills, Meals, Money) and categories. Disabled modules retain their data and are hidden from navigation and Today.
 
 Lists have 25-record pages, with bounded API pagination up to 100. Dashboard lists are intentionally compact; totals count every matching persisted record. Failed form saves keep input. Pending saves disable duplicate submissions; success and error messages are announced. Escape closes idle dialogs, focus stays in modal dialogs and returns to the trigger, and keyboard focus is visible.
 
@@ -293,7 +300,9 @@ Lists have 25-record pages, with bounded API pagination up to 100. Dashboard lis
 - **Recurrence:** occurrences are calendar dates, never instants; timed repeating tasks are not supported. "Today" is the profile timezone's local date, and changing the timezone never shifts stored occurrence dates. Weekly series repeat on the start date's weekday (one weekday per series). Monthly series always derive from the start date: an anchor on the 29th–31st falls on the last day of shorter months (Jan 31 → Feb 28/29 → Mar 31) without drifting.
 - Occurrences are generated on demand when tasks, bills, the budget summary or the overview load, up to 42 days ahead; there are no background jobs. Generation is idempotent (one row per series and date, enforced by a unique key) and safe under concurrent requests. New series never backfill dates before today. A deleted occurrence is not recreated, except that *This and future* rebuilds upcoming open occurrences from the new rule. *This and future* keeps earlier occurrences and every completed or paid one; open overdue occurrences keep their dates and take the new details.
 - **Meals:** quantities scale by planned ÷ recipe servings and round half-up to 0.001 (never to zero). Ingredients merge only when the name (ignoring case and spacing) and unit match; a small table recognizes spellings of the *same* unit (g/grams, tbsp/tablespoons, cup/cups). No conversions are made, so cups and grams stay on separate lines. Changing a planned meal after its groceries were added does not adjust the grocery list. Deleting a recipe removes its planned meals but keeps added groceries.
-- **Money:** expenses, budgets and bills use exact decimals. Budgets are standing monthly limits per category and currency, so past months are shown against current budget amounts. Categories match ignoring case and spacing. Currencies are never summed or converted. Paid bills without a recorded expense are not counted as spending.
+- **Money:** expenses, income, budgets and bills use exact decimals; income and expense dates are calendar dates. Budgets are standing monthly limits per expense category and currency, so past months are shown against current budget amounts. Currencies are never summed or converted; each has its own figures. Income never reduces reported spending or changes a budget. Paid bills without a recorded expense are not counted as spending. Recording a bill payment as an expense requires choosing an expense category (Utilities is preselected when it exists).
+- **Categories:** names are unique per account and list, ignoring case and spacing. Categories can be archived but not deleted, so historical records always keep a readable category. The database enforces that a record's category belongs to the same account; the API additionally checks the list (scope).
+- **Library** is a placeholder: documents are not implemented yet, and the page says so.
 - Documents, RAG, assistants, external calendar integrations, background jobs and MCP are recorded in [ROADMAP.md](ROADMAP.md); their services are not installed or running.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for dependency direction and [VERIFICATION.md](VERIFICATION.md) for the checks performed in this workspace.

@@ -8,13 +8,14 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException
 
 from app.core.config import CORS_ORIGINS
-from app.core.errors import Conflict, NotFound
+from app.core.errors import Conflict, Invalid, NotFound
 from app.modules.auth.routes import router as auth
 from app.modules.auth.service import AuthError
 from app.modules.bills.routes import router as bills
 from app.modules.bills.routes import series_router as bill_series
 from app.modules.budget.routes import router as budget
 from app.modules.calendar.routes import router as calendar
+from app.modules.categories.routes import router as categories
 from app.modules.dashboard.routes import router as dashboard
 from app.modules.groceries.routes import router as groceries
 from app.modules.meals.routes import router as meals
@@ -22,7 +23,7 @@ from app.modules.settings.routes import router as settings
 from app.modules.tasks.routes import router as tasks
 from app.modules.tasks.routes import series_router as task_series
 
-app = FastAPI(title="Daybook", version="0.3.0", description="Personal life dashboard")
+app = FastAPI(title="Daybook", version="0.4.0", description="Personal life dashboard")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -42,6 +43,7 @@ for router in [
     bill_series,
     meals,
     budget,
+    categories,
     settings,
     dashboard,
 ]:
@@ -64,6 +66,13 @@ async def not_found(request: Request, exc: NotFound):
 async def conflict(request: Request, exc: Conflict):
     return JSONResponse(
         status_code=409, content={"error": {"code": "conflict", "message": str(exc)}}
+    )
+
+
+@app.exception_handler(Invalid)
+async def invalid(request: Request, exc: Invalid):
+    return JSONResponse(
+        status_code=422, content={"error": {"code": "validation", "message": str(exc)}}
     )
 
 

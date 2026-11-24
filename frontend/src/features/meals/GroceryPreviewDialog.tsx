@@ -26,7 +26,7 @@ export function GroceryPreviewDialog({ entryIds, onClose, onAdded }: { entryIds:
     if (invalid) { setError('Enter a quantity above zero for ' + invalid.name + ', or leave it out.'); return; }
     setPending(true); setError('');
     try {
-      const result = await api.addGroceries(requestId, pendingEntries, chosen.map(line => ({ name: line.name, unit: line.unit, category: line.category, quantity: draft(line).quantity })));
+      const result = await api.addGroceries(requestId, pendingEntries, chosen.map(line => ({ name: line.name, unit: line.unit, category_id: line.category_id, quantity: draft(line).quantity })));
       onAdded(result.created ? `Added ${result.added} ${result.added === 1 ? 'item' : 'items'} to groceries.` : 'These groceries were already added.');
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not add groceries.'); }
     finally { setPending(false); }
@@ -38,8 +38,8 @@ export function GroceryPreviewDialog({ entryIds, onClose, onAdded }: { entryIds:
       <p className="dialog-lead">From {pendingEntries.length} planned {pendingEntries.length === 1 ? 'meal' : 'meals'}, scaled to their servings. Adjust anything before adding. Your existing list is left as it is.</p>
       {data.skipped_entry_ids.length > 0 && <p className="form-hint">{data.skipped_entry_ids.length} {data.skipped_entry_ids.length === 1 ? 'meal was' : 'meals were'} already added and {data.skipped_entry_ids.length === 1 ? 'is' : 'are'} not counted again.</p>}
       {data.items.length ? <ul className="preview-list">{data.items.map(line => { const d = draft(line); return <li key={line.key} className={d.include ? '' : 'excluded'}>
-        <input type="checkbox" className="record-check" checked={d.include} disabled={pending} aria-label={'Include ' + line.name + (line.unit ? ' (' + line.unit + ')' : '')} onChange={e => update(line, { include: e.target.checked })} />
-        <div className="preview-copy"><strong>{line.name}</strong><span>{line.sources.join(', ')}{line.on_list ? ' · ' + quantity(line.on_list) + (line.unit ? ' ' + line.unit : '') + ' already on your list' : ''}{line.other_units ? ' · Kept separate: different units' : ''}</span></div>
+        <input type="checkbox" className="check" checked={d.include} disabled={pending} aria-label={'Include ' + line.name + (line.unit ? ' (' + line.unit + ')' : '')} onChange={e => update(line, { include: e.target.checked })} />
+        <div className="preview-copy"><strong>{line.name}</strong><span>{line.category ? line.category + ' · ' : ''}{line.sources.join(', ')}{line.on_list ? ' · ' + quantity(line.on_list) + (line.unit ? ' ' + line.unit : '') + ' already on your list' : ''}{line.other_units ? ' · Kept separate: different units' : ''}</span></div>
         <label className="preview-quantity"><span className="visually-hidden">Quantity of {line.name}</span><input type="number" min="0.001" step="0.001" value={d.quantity} disabled={pending || !d.include} onChange={e => update(line, { quantity: e.target.value })} /></label>
         <span className="preview-unit">{line.unit}</span>
       </li>; })}</ul> : <p className="muted lower-empty">Nothing new to add from these meals.</p>}

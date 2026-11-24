@@ -6,7 +6,7 @@ import type { Task } from '../api/contracts';
 import { RecordsView } from './RecordsView';
 
 test('deleting the final row on a later page returns to an available page', async () => {
-  const task = (i: number): Task => ({id: String(i), title: 'Task ' + i, notes: '', due_date: null, due_at: null, priority: 'normal', category: '', completed: false});
+  const task = (i: number): Task => ({id: String(i), title: 'Task ' + i, notes: '', due_date: null, due_at: null, priority: 'normal', category_id: null, completed: false});
   let deleted = false;
   vi.spyOn(api, 'list').mockImplementation(async (_module, offset = 0) => ({
     items: offset === 0 ? Array.from({length:25}, (_, i) => task(i)) : deleted ? [] : [task(25)],

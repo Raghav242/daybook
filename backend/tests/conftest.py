@@ -56,3 +56,10 @@ def authenticate(client, username="test-user", password="test-passphrase-123", r
 def client(raw_client):
     authenticate(raw_client)
     return raw_client
+
+
+def category_id(client, scope, name):
+    """The id of the account's category ``name`` in ``scope``, created if it is missing."""
+    response = client.post("/api/categories", json={"scope": scope, "name": name})
+    assert response.status_code in (200, 201), response.text
+    return response.json()["id"]

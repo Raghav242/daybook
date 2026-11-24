@@ -47,6 +47,11 @@ class DashboardService:
                 month=month["month"],
                 totals=month["totals"],
                 expected_bills=month["expected_bills"],
+                over_budget=[
+                    line
+                    for line in month["categories"]
+                    if line["remaining"] is not None and line["remaining"] < 0
+                ],
             )
         return {
             "today": today,

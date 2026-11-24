@@ -1,5 +1,46 @@
 # Verification
 
+## Everyday redesign, categories and income (November 23, 2026)
+
+- Inspected the repository before changing it (no AGENTS.md exists). The user's real database was not migrated, reset or opened.
+- Backend: **86 pytest tests pass on isolated SQLite databases and on a disposable PostgreSQL 17 container** (tmpfs storage, loopback port 55433, stopped afterwards). New tests cover:
+  - categories: starting lists created once, normalized uniqueness and idempotent creation, per-scope separation, rename conflicts, scope validation, and the read-only echoed name;
+  - archiving: archived categories stay readable on records, editing a record does not force a change, new records cannot use them, and re-adding the name restores them;
+  - ownership: category ownership for tasks, task series, groceries, recipes, income and budgets, and database rejection of cross-account category and bill references;
+  - migration `0004 -> 0005 -> 0004 -> head`: case/spacing variants merged, a default category joined, empty values kept empty, expenses and budgets sharing one category, per-account lists, and text restored on downgrade;
+  - income: CRUD and validation (positive two-decimal amounts, date only, income scope), month boundaries, exact decimal totals (0.10 + 0.20), and isolation between accounts;
+  - money totals: per-currency income, spending and net, with income never changing spending or budgets, and combined, filtered and paginated transactions;
+  - bill payment: an expense category is now required, and exactly one expense is still recorded.
+
+  Existing Phase 1, authentication and Phase 2 tests were updated to use category ids and the new dashboard lists, and pass. Offline `alembic upgrade 0004:0005 --sql` is refused with an explanatory error, by design. Ruff lint and format pass.
+- Frontend: **49 Vitest tests pass** (13 files). They cover:
+  - navigation: route parsing and legacy aliases, tab grouping and hidden sections, mobile bottom tabs and section links, and the desktop sidebar with a keyboard-operable profile menu;
+  - Today: a single starting state for new accounts, a quiet day, timeline ordering of all-day/timed events and timed tasks, date-only items without invented times, unscheduled tasks kept separate, needs-attention links, the merged coming-up list, per-currency summaries, and disabled modules;
+  - Quick Add: type options, income and expense entry, failed saves keeping all typed input (including categories), and blocked duplicate submissions;
+  - categories: selection, adding a category from the selector (success and failure), the searchable combobox by keyboard, and archived categories shown only on their own records;
+  - Money: the overview per currency with bills kept separate, and transaction filtering with delete confirmation.
+
+  Existing recurrence, grocery-review and auth/session tests pass. TypeScript, ESLint and the production build pass.
+- Browser: headless Microsoft Edge via Playwright, against a disposable SQLite database and a Vite dev server (ports 18000/15173). One account had realistic seeded data: overdue items, a very long task title, a long category name, over-budget Dining, USD and EUR spending, income, repeating bills and tasks, meals and groceries. A separate account stayed empty.
+  - Pages checked at 1440x900, 390x844 and 430x932: Today, Tasks, Meals and the grocery review, Groceries, Money overview, Transactions, Budgets, Settings and Library. Also checked: adding income with a new category from inside the selector, a server form error (duplicate budget), and the empty account.
+  - Automated checks:
+    - no horizontal overflow;
+    - the last content ends above the tab bar;
+    - the Add sheet is anchored full-width to the bottom edge with its actions visible, including when the viewport is shortened to imitate an on-screen keyboard;
+    - Tab reaches the skip link, then Add;
+    - Escape closes the dialog and returns focus to Add;
+    - the profile menu opens with focus on its first item.
+  - Issues found and fixed during inspection:
+    - desktop dialogs rendered in the top-left corner (the CSS reset removed `margin: auto`);
+    - the net figure wrapped mid-number on phones (figures now stack);
+    - checkbox hit areas were 22px (now 44px);
+    - items due today repeated their date;
+    - units sat on their own row in the phone grocery review.
+  - Screenshots: `verification/redesign-*.png`.
+- Console errors during the browser run: the expected pre-login 401, the intentional 409 from the duplicate budget, and one 404 (most likely the missing favicon).
+- Not checked: real iOS/Android devices (safe-area insets and the real on-screen keyboard were only simulated by viewport size), screen readers, the full Docker Compose stack, and an upgrade of the user's real database. `npm audit` still reports moderate advisories in development-only tooling (Vitest mocker, typescript-eslint/minimatch); these were not changed here.
+
+
 ## Phase 2 planning and organization (November 23, 2026)
 
 - Inspected the Phase 1 and authentication code before changing it: feature routes/services/repositories, models, migrations 0001–0003, tests, seed/manage commands and frontend views. No AGENTS.md exists in the repository. Baseline: 42 backend and 16 frontend tests passed.

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.5",
+    "@fontsource/newsreader": "^5.2.6",
     "@tailwindcss/vite": "^4.1.0",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",

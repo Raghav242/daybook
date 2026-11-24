@@ -2,21 +2,22 @@ import { useState, type FormEvent } from 'react';
 import { Plus, X } from 'lucide-react';
 import { api } from '../../shared/api/client';
 import type { Ingredient, Meal, MealPlanEntry, Recipe } from '../../shared/api/contracts';
+import { CategorySelect } from '../../shared/categories';
 import { mealNames, quantity } from '../../shared/domain';
 import { Dialog } from '../../shared/ui/Dialog';
 
-const blank = (): Ingredient & { key: string } => ({ key: crypto.randomUUID(), name: '', quantity: '1', unit: '', category: '' });
+const blank = (): Ingredient & { key: string } => ({ key: crypto.randomUUID(), name: '', quantity: '1', unit: '', category_id: null });
 
 export function RecipeEditor({ recipe, onClose, onSaved }: { recipe?: Recipe; onClose: () => void; onSaved: (message: string) => void }) {
   const [rows, setRows] = useState(() => recipe?.ingredients.length ? recipe.ingredients.map(i => ({ ...i, quantity: quantity(i.quantity), key: i.id || crypto.randomUUID() })) : [blank()]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
-  const change = (key: string, field: keyof Ingredient, value: string) => setRows(r => r.map(row => row.key === key ? { ...row, [field]: value } : row));
+  const change = (key: string, field: keyof Ingredient, value: string | null) => setRows(r => r.map(row => row.key === key ? { ...row, [field]: value } : row));
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (pending) return;
     const form = new FormData(e.currentTarget);
-    const ingredients = rows.filter(r => r.name.trim()).map(({ name, quantity, unit, category }) => ({ name: name.trim(), quantity, unit: unit.trim(), category: category.trim() }));
+    const ingredients = rows.filter(r => r.name.trim()).map(({ name, quantity, unit, category_id }) => ({ name: name.trim(), quantity, unit: unit.trim(), category_id }));
     setPending(true); setError('');
     try {
       await api.saveRecipe({ name: String(form.get('name')).trim(), servings: Number(form.get('servings')), notes: String(form.get('notes') || '').trim(), ingredients }, recipe?.id);
@@ -28,12 +29,12 @@ export function RecipeEditor({ recipe, onClose, onSaved }: { recipe?: Recipe; on
     <form onSubmit={submit}><fieldset disabled={pending}>
       <div className="form-pair recipe-head"><label>Name<input name="name" required maxLength={200} defaultValue={recipe?.name} placeholder="e.g. Lentil soup" /></label><label>Serves<input name="servings" type="number" min="1" max="1000" step="1" required defaultValue={recipe?.servings || 4} /></label></div>
       <p className="field-group-label">Ingredients</p>
-      <p className="form-hint">Quantities are for the servings above. Use the same unit spelling to let meals combine; different units are never converted.</p>
+      <p className="form-hint">Quantities are for the servings above. Ingredients combine only when the name and unit match; units are never converted.</p>
       <ul className="ingredient-rows">{rows.map((row, index) => <li key={row.key}>
         <label><span className="visually-hidden">Ingredient {index + 1}</span><input value={row.name} maxLength={200} placeholder="Ingredient" onChange={e => change(row.key, 'name', e.target.value)} /></label>
         <label><span className="visually-hidden">Quantity {index + 1}</span><input type="number" min="0.001" step="0.001" value={row.quantity} required={Boolean(row.name.trim())} onChange={e => change(row.key, 'quantity', e.target.value)} /></label>
         <label><span className="visually-hidden">Unit {index + 1}</span><input value={row.unit} maxLength={40} placeholder="unit" onChange={e => change(row.key, 'unit', e.target.value)} /></label>
-        <label className="ingredient-category"><span className="visually-hidden">Grocery category {index + 1}</span><input value={row.category} maxLength={80} placeholder="aisle" onChange={e => change(row.key, 'category', e.target.value)} /></label>
+        <div className="ingredient-category"><CategorySelect scope="grocery" name={'ingredient-aisle-' + index} label={'Aisle for ingredient ' + (index + 1)} hideLabel defaultValue={row.category_id} onChange={value => change(row.key, 'category_id', value)} /></div>
         <button type="button" className="icon-button" aria-label={'Remove ingredient ' + (index + 1)} onClick={() => setRows(r => r.length > 1 ? r.filter(x => x.key !== row.key) : [blank()])}><X size={15} /></button>
       </li>)}</ul>
       <button type="button" className="text-button add-link" onClick={() => setRows(r => [...r, blank()])}><Plus size={14} />Add ingredient</button>

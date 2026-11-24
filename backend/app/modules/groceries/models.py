@@ -5,15 +5,22 @@ from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Numeric, String, Uu
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.database import Base
+from app.modules.categories.models import category_name, category_owner_key
 
 
 class Grocery(Base):
     __tablename__ = "groceries"
-    __table_args__ = (CheckConstraint("quantity > 0", name="grocery_quantity_positive"),)
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="grocery_quantity_positive"),
+        category_owner_key("groceries"),
+    )
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(200))
     quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=1)
     unit: Mapped[str] = mapped_column(String(40), default="")
-    category: Mapped[str] = mapped_column(String(80), default="")
+    category_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True, index=True)
     purchased: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+
+
+Grocery.category = category_name(Grocery)

@@ -1,4 +1,4 @@
-import type { AuthSession, Bill, Budget, BudgetInput, BudgetSummary, Dashboard, Expense, ExpenseInput, GroceryAdditionItem, GroceryAdditionResult, GroceryPreview, MealPlanEntry, MealPlanInput, Module, Page, PayInput, Recipe, RecipeInput, RecordInput, Records, RepeatingModule, Series, SeriesInputs, Settings } from './contracts';
+import type { AuthSession, Bill, Budget, BudgetInput, BudgetSummary, Category, CategoryScope, Dashboard, Expense, ExpenseInput, GroceryAdditionItem, GroceryAdditionResult, GroceryPreview, Income, IncomeInput, MealPlanEntry, MealPlanInput, Module, Page, PayInput, Recipe, RecipeInput, RecordInput, Records, RepeatingModule, Series, SeriesInputs, Settings, Transaction, TransactionKind } from './contracts';
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
 let csrfToken = '';
@@ -85,8 +85,18 @@ export const api = {
   expenses: (month: string, offset = 0, signal?: AbortSignal) => request<Page<Expense>>('/expenses?' + new URLSearchParams({ month, offset: String(offset), limit: '25' }), { signal }),
   saveExpense: (value: ExpenseInput, id?: string) => request<Expense>('/expenses' + (id ? '/' + id : ''), { method: id ? 'PUT' : 'POST', body: JSON.stringify(value) }),
   deleteExpense: (id: string) => request<void>('/expenses/' + id, { method: 'DELETE' }),
+  income: (month: string, offset = 0, signal?: AbortSignal) => request<Page<Income>>('/income?' + new URLSearchParams({ month, offset: String(offset), limit: '25' }), { signal }),
+  saveIncome: (value: IncomeInput, id?: string) => request<Income>('/income' + (id ? '/' + id : ''), { method: id ? 'PUT' : 'POST', body: JSON.stringify(value) }),
+  deleteIncome: (id: string) => request<void>('/income/' + id, { method: 'DELETE' }),
+  transactions: (month: string, kind: TransactionKind | 'all', offset = 0, signal?: AbortSignal) =>
+    request<Page<Transaction>>('/transactions?' + new URLSearchParams({ month, kind, offset: String(offset), limit: '25' }), { signal }),
   budgets: (signal?: AbortSignal) => request<Budget[]>('/budgets', { signal }),
   saveBudget: (value: BudgetInput, id?: string) => request<Budget>('/budgets' + (id ? '/' + id : ''), { method: id ? 'PUT' : 'POST', body: JSON.stringify(value) }),
   deleteBudget: (id: string) => request<void>('/budgets/' + id, { method: 'DELETE' }),
+
+  // One category list per scope. Archived categories are included and flagged.
+  categories: (signal?: AbortSignal) => request<Category[]>('/categories', { signal }),
+  createCategory: (scope: CategoryScope, name: string) => request<Category>('/categories', { method: 'POST', body: JSON.stringify({ scope, name }) }),
+  updateCategory: (id: string, name: string, archived: boolean) => request<Category>('/categories/' + id, { method: 'PUT', body: JSON.stringify({ name, archived }) }),
 };
 

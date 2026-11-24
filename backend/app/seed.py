@@ -15,19 +15,54 @@ from app.modules.auth.service import normalize_username
 from app.modules.bills.models import Bill
 from app.modules.budget.models import Expense
 from app.modules.calendar.models import CalendarEntry
+from app.modules.categories.models import Category, category_key
+from app.modules.categories.repository import CategoryRepository
+from app.modules.categories.service import CategoryService
 from app.modules.groceries.models import Grocery
 from app.modules.settings.repository import SettingsRepository
 from app.modules.settings.service import SettingsService
 from app.modules.tasks.models import Task
 
 
+def sample_categories(user_id):
+    """Category ids for the samples, created in the account's lists only when missing."""
+    wanted = {
+        "task": ["Study", "Errands", "Personal"],
+        "grocery": ["Produce", "Pantry", "Dairy & Eggs"],
+    }
+    with Session(engine) as session:
+        CategoryService(CategoryRepository(session, user_id)).ensure_defaults()
+        ids = {}
+        for scope, names in wanted.items():
+            for name in names:
+                record = session.scalar(
+                    select(Category).where(
+                        Category.user_id == user_id,
+                        Category.scope == scope,
+                        Category.key == category_key(name),
+                    )
+                )
+                if record is None:
+                    record = Category(
+                        user_id=user_id, scope=scope, name=name, key=category_key(name), position=99
+                    )
+                    session.add(record)
+                    session.commit()
+                ids[name] = record.id
+        return ids
+
+
 def seed(owner, clear=False):
-    with Session(engine) as session, session.begin():
+    with Session(engine) as session:
         user = session.scalar(
             select(User).where(User.normalized_username == normalize_username(owner))
         )
         if not user:
             raise ValueError("Designated demo account does not exist. Create it explicitly first.")
+        user_id = user.id
+    category = {} if clear else sample_categories(user_id)
+    with Session(engine) as session, session.begin():
+        user = session.get(User, user_id)
         settings = SettingsService(SettingsRepository(session, user.id)).get()
         zone = ZoneInfo(settings.timezone)
         today = datetime.now(zone).date()
@@ -46,7 +81,7 @@ def seed(owner, clear=False):
                     notes="A little progress is enough.",
                     due_date=today,
                     priority="high",
-                    category="School",
+                    category_id=category.get("Study"),
                     completed=False,
                 ),
             ),
@@ -57,7 +92,7 @@ def seed(owner, clear=False):
                     title="Return library books",
                     due_date=today - timedelta(days=1),
                     priority="normal",
-                    category="Errands",
+                    category_id=category.get("Errands"),
                     completed=False,
                 ),
             ),
@@ -67,7 +102,7 @@ def seed(owner, clear=False):
                 dict(
                     title="Make time for a walk",
                     priority="low",
-                    category="Personal",
+                    category_id=category.get("Personal"),
                     completed=False,
                 ),
             ),
@@ -111,7 +146,7 @@ def seed(owner, clear=False):
                     name="Apples",
                     quantity=Decimal("6"),
                     unit="pieces",
-                    category="Produce",
+                    category_id=category.get("Produce"),
                     purchased=False,
                 ),
             ),
@@ -122,7 +157,7 @@ def seed(owner, clear=False):
                     name="Rolled oats",
                     quantity=Decimal("1"),
                     unit="bag",
-                    category="Pantry",
+                    category_id=category.get("Pantry"),
                     purchased=False,
                 ),
             ),
@@ -133,7 +168,7 @@ def seed(owner, clear=False):
                     name="Oat milk",
                     quantity=Decimal("2"),
                     unit="cartons",
-                    category="Fridge",
+                    category_id=category.get("Dairy & Eggs"),
                     purchased=False,
                 ),
             ),

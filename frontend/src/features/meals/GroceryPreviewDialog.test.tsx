@@ -11,9 +11,9 @@ const preview: GroceryPreview = {
     {id: 'e2', plan_date: '2026-11-24', meal: 'lunch', recipe_id: 'r1', recipe_name: 'Soup', servings: 2, added_to_groceries: true},
   ],
   items: [
-    {key: 'flour|cup', name: 'Flour', unit: 'cup', quantity: '1.500', category: 'Pantry', sources: ['Soup'], other_units: true, on_list: null},
-    {key: 'flour|g', name: 'Flour', unit: 'g', quantity: '200.000', category: 'Pantry', sources: ['Soup'], other_units: true, on_list: '100.000'},
-    {key: 'salt|', name: 'Salt', unit: '', quantity: '1.000', category: '', sources: ['Soup'], other_units: false, on_list: null},
+    {key: 'flour|cup', name: 'Flour', unit: 'cup', quantity: '1.500', category_id: 'g:pantry', category: 'Pantry', sources: ['Soup'], other_units: true, on_list: null},
+    {key: 'flour|g', name: 'Flour', unit: 'g', quantity: '200.000', category_id: 'g:pantry', category: 'Pantry', sources: ['Soup'], other_units: true, on_list: '100.000'},
+    {key: 'salt|', name: 'Salt', unit: '', quantity: '1.000', category_id: null, category: '', sources: ['Soup'], other_units: false, on_list: null},
   ],
   skipped_entry_ids: ['e2'],
 };
@@ -42,8 +42,8 @@ test('review lets the user adjust and exclude lines, and retries reuse one reque
   expect(add.mock.calls[0][0]).toBe(add.mock.calls[1][0]);
   expect(add.mock.calls[1][1]).toEqual(['e1']);
   expect(add.mock.calls[1][2]).toEqual([
-    {name: 'Flour', unit: 'cup', category: 'Pantry', quantity: '1.5'},
-    {name: 'Flour', unit: 'g', category: 'Pantry', quantity: '150'},
+    {name: 'Flour', unit: 'cup', category_id: 'g:pantry', quantity: '1.5'},
+    {name: 'Flour', unit: 'g', category_id: 'g:pantry', quantity: '150'},
   ]);
 });
 

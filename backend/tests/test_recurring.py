@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
 import pytest
-from conftest import authenticate
+from conftest import authenticate, category_id
 from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
@@ -212,7 +212,11 @@ def test_paying_one_bill_occurrence_does_not_pay_the_next(client):
         },
     )
     bills = client.get("/api/bills").json()["items"]
-    paid = client.post(f"/api/bills/{bills[0]['id']}/pay", json={"paid_on": today.isoformat()})
+    utilities = category_id(client, "expense", "Utilities")
+    paid = client.post(
+        f"/api/bills/{bills[0]['id']}/pay",
+        json={"paid_on": today.isoformat(), "category_id": utilities},
+    )
     assert paid.status_code == 200 and paid.json()["paid"] is True
     assert paid.json()["expense_id"]
     states = [b["paid"] for b in client.get("/api/bills").json()["items"]]

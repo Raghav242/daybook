@@ -111,7 +111,7 @@ def test_planning_migration_preserves_records_and_downgrades(tmp_path, monkeypat
                 f"VALUES ('{user}','UTC','EUR','[\"bills\"]')"
             )
         )
-    command.upgrade(migration, "head")
+    command.upgrade(migration, "0004")
     with engine.begin() as connection:
         assert connection.scalar(text("SELECT title FROM tasks")) == "Kept task"
         assert connection.scalar(text("SELECT series_id FROM tasks")) is None
@@ -139,6 +139,115 @@ def test_planning_migration_preserves_records_and_downgrades(tmp_path, monkeypat
         modules = connection.scalar(text("SELECT enabled_modules FROM settings"))
         # PostgreSQL returns parsed JSON; SQLite returns its text.
         assert (json.loads(modules) if isinstance(modules, str) else modules) == ["bills"]
+    command.upgrade(migration, "head")
+    if os.getenv("TEST_DATABASE_URL"):
+        Base.metadata.drop_all(engine)
+        with engine.begin() as connection:
+            connection.execute(text("DROP TABLE alembic_version"))
+    engine.dispose()
+
+
+def test_category_migration_merges_equivalent_text_and_downgrades(tmp_path, monkeypatch):
+    url = os.getenv(
+        "TEST_DATABASE_URL", "sqlite:///" + str(tmp_path / "categories.db").replace("\\", "/")
+    )
+    monkeypatch.setattr(config, "DATABASE_URL", url)
+    migration = Config("alembic.ini")
+    command.upgrade(migration, "0004")
+    engine = create_engine(url)
+    alice, bob = "a" * 32, "b" * 32
+    rows = {
+        "users": [
+            f"('{alice}','Alice','alice','x','2026-01-01 00:00:00')",
+            f"('{bob}','Bob','bob','x','2026-01-01 00:00:00')",
+        ],
+        "tasks": [
+            f"('{'1' * 32}','{alice}','Essay','','normal','School',false)",
+            f"('{'2' * 32}','{alice}','Notes','','normal',' school ',false)",
+            f"('{'3' * 32}','{alice}','Walk','','normal','',false)",
+            f"('{'4' * 32}','{bob}','Report','','normal','school',false)",
+            f"('{'5' * 32}','{alice}','Tidy','','normal','home',false)",
+        ],
+        "groceries": [f"('{'6' * 32}','{alice}','Milk',1,'l','Fridge',false)"],
+        "expenses": [
+            f"('{'7' * 32}','{alice}',12.50,'USD','Coffee','coffee','2026-11-02','')",
+            f"('{'8' * 32}','{alice}',3.00,'USD','COFFEE','coffee','2026-11-03','')",
+            f"('{'9' * 32}','{alice}',40.00,'USD','groceries','groceries','2026-11-04','')",
+        ],
+        "budgets": [f"('{'c' * 32}','{alice}','coffee','coffee',20.00,'USD')"],
+    }
+    columns = {
+        "users": "id,username,normalized_username,password_hash,created_at",
+        "tasks": "id,user_id,title,notes,priority,category,completed",
+        "groceries": "id,user_id,name,quantity,unit,category,purchased",
+        "expenses": "id,user_id,amount,currency,category,category_key,spent_on,note",
+        "budgets": "id,user_id,category,category_key,amount,currency",
+    }
+    with engine.begin() as connection:
+        for table, values in rows.items():
+            connection.execute(
+                text(f"INSERT INTO {table} ({columns[table]}) VALUES {','.join(values)}")
+            )
+    command.upgrade(migration, "0005")
+
+    def names(connection, table, owner=alice):
+        return dict(
+            connection.execute(
+                text(
+                    f"SELECT t.id, c.name FROM {table} t LEFT JOIN categories c "
+                    f"ON c.id = t.category_id WHERE t.user_id = '{owner}'"
+                )
+            ).all()
+        )
+
+    def ids(value):
+        return value.replace("-", "")
+
+    with engine.connect() as connection:
+        tasks = {ids(str(k)): v for k, v in names(connection, "tasks").items()}
+        # Case/spacing variants merge into one category, named by the commonest spelling.
+        assert tasks["1" * 32] == tasks["2" * 32] == "School"
+        assert tasks["3" * 32] is None  # an empty category stays empty
+        assert (
+            tasks["5" * 32] == "Home"
+        )  # equivalent to a starting category: joined, not duplicated
+        expenses = set(names(connection, "expenses").values())
+        assert expenses == {"Coffee", "Groceries"}
+        assert set(names(connection, "budgets").values()) == {"Coffee"}
+        # Budgets and expenses reference the very same expense category.
+        assert (
+            connection.scalar(
+                text(
+                    "SELECT count(DISTINCT e.category_id) FROM expenses e JOIN budgets b "
+                    "ON b.category_id = e.category_id"
+                )
+            )
+            == 1
+        )
+        assert set(names(connection, "groceries").values()) == {"Fridge"}
+        # Every account gets its own starting lists; Bob's "school" is his own category.
+        assert set(names(connection, "tasks", bob).values()) == {"school"}
+        per_user = connection.execute(
+            text("SELECT user_id, count(*) FROM categories WHERE scope = 'income' GROUP BY user_id")
+        ).all()
+        assert sorted(count for _, count in per_user) == [6, 6]
+        assert connection.scalar(text("SELECT count(*) FROM tasks")) == 5
+    command.downgrade(migration, "0004")
+    with engine.connect() as connection:
+        restored = dict(connection.execute(text("SELECT title, category FROM tasks")).all())
+        assert restored == {
+            "Essay": "School",
+            "Notes": "School",
+            "Walk": "",
+            "Report": "school",
+            "Tidy": "Home",
+        }
+        assert sorted(
+            connection.execute(text("SELECT category, category_key FROM expenses")).all()
+        ) == [("Coffee", "coffee"), ("Coffee", "coffee"), ("Groceries", "groceries")]
+        assert connection.execute(text("SELECT category, amount FROM budgets")).all()[0][0] == (
+            "Coffee"
+        )
     command.upgrade(migration, "head")
     if os.getenv("TEST_DATABASE_URL"):
         Base.metadata.drop_all(engine)

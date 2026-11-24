@@ -4,16 +4,26 @@ from app.core.errors import Conflict, NotFound
 from app.modules.bills.models import Bill
 from app.modules.bills.repository import BillRepository
 from app.modules.bills.schemas import BillInput, PayInput
-from app.modules.budget.models import Expense, category_key
+from app.modules.budget.models import Expense
+from app.modules.categories.service import CategoryService
 from app.modules.recurrence.service import RecurrenceService
 
 
 class BillService:
-    def __init__(self, repository: BillRepository, recurrence: RecurrenceService | None = None):
+    def __init__(
+        self,
+        repository: BillRepository,
+        categories: CategoryService,
+        recurrence: RecurrenceService | None = None,
+    ):
         self.repository = repository
+        self.categories = categories
         self.recurrence = recurrence
-        if recurrence and recurrence.repository.user_id != repository.user_id:
-            raise ValueError("Bills and recurrence must use the same authenticated owner.")
+        owners = {repository.user_id, categories.repository.user_id}
+        if recurrence:
+            owners.add(recurrence.repository.user_id)
+        if len(owners) != 1:
+            raise ValueError("Bill services must use the same authenticated owner.")
 
     def list(self, offset: int, limit: int, status: bool | None):
         if self.recurrence:
@@ -50,12 +60,12 @@ class BillService:
         bill = self.get(record_id)
         expense = None
         if data.record_expense and bill.expense_id is None and bill.amount > 0:
+            self.categories.require("expense", data.category_id)
             expense = Expense(
                 user_id=self.repository.user_id,
                 amount=bill.amount,
                 currency=bill.currency,
-                category=data.category,
-                category_key=category_key(data.category),
+                category_id=data.category_id,
                 spent_on=data.paid_on,
                 note=data.note or bill.name,
                 bill_id=bill.id,

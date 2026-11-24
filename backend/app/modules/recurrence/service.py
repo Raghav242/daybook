@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
@@ -20,11 +21,18 @@ class RecurrenceService:
     series has been materialized, so an occurrence the user deleted is not recreated.
     """
 
-    def __init__(self, repository: SeriesRepository, settings: SettingsService):
+    def __init__(
+        self,
+        repository: SeriesRepository,
+        settings: SettingsService,
+        validate: Callable[[RecurrenceFields, object | None], object] | None = None,
+    ):
+        """``validate(data, current_series)`` checks feature fields, such as a category."""
         if repository.user_id != settings.repository.user_id:
             raise ValueError("Recurrence and settings must use the same authenticated owner.")
         self.repository = repository
         self.settings = settings
+        self.validate = validate
 
     def today(self, now: datetime | None = None) -> date:
         zone = ZoneInfo(self.settings.get().timezone)
@@ -66,6 +74,8 @@ class RecurrenceService:
 
     def create(self, data: RecurrenceFields, today: date | None = None):
         today = today or self.today()
+        if self.validate:
+            self.validate(data, None)
         # Past dates are not backfilled; the start date still anchors the schedule.
         first = max(data.start_date, today)
         series = self.repository.series_model(
@@ -93,6 +103,8 @@ class RecurrenceService:
         if occurrence.series_id is None:
             raise Conflict("This item does not repeat.")
         series = self.get(occurrence.series_id)
+        if self.validate:
+            self.validate(data, series)
         cut = min(occurrence.occurrence_date, data.start_date)
         values = data.model_dump()
         if cut <= series.start_date:

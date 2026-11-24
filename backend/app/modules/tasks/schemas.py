@@ -14,8 +14,10 @@ class TaskInput(Input):
     due_date: date | None = None
     due_at: AwareDatetime | None = None
     priority: Literal["low", "normal", "high"] = "normal"
-    category: str = Field(default="", max_length=80)
+    category_id: UUID | None = None
     completed: bool = False
+    # Read-only display name of the category; never written.
+    category: str | None = Field(default=None, exclude=True)
     # Read-only recurrence links. Accepted so clients can echo a full record back on PUT,
     # but excluded from writes: series membership is only changed by the server.
     series_id: UUID | None = Field(default=None, exclude=True)
@@ -37,7 +39,8 @@ class TaskOutput(Output):
     due_date: date | None
     due_at: AwareDatetime | None
     priority: Literal["low", "normal", "high"]
-    category: str
+    category_id: UUID | None = None
+    category: str | None = None
     completed: bool
     series_id: UUID | None = None
     occurrence_date: date | None = None
@@ -47,8 +50,18 @@ class TaskSeriesInput(RecurrenceFields):
     title: str = Field(min_length=1, max_length=200)
     notes: str = Field(default="", max_length=10000)
     priority: Literal["low", "normal", "high"] = "normal"
-    category: str = Field(default="", max_length=80)
+    category_id: UUID | None = None
+    category: str | None = Field(default=None, exclude=True)
 
 
-class TaskSeriesOutput(TaskSeriesInput, Output):
+class TaskSeriesOutput(Output):
     id: UUID
+    title: str
+    notes: str
+    priority: Literal["low", "normal", "high"]
+    category_id: UUID | None = None
+    category: str | None = None
+    frequency: Literal["daily", "weekly", "monthly"]
+    interval: int
+    start_date: date
+    until_date: date | None

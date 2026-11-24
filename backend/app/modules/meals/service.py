@@ -4,6 +4,7 @@ from uuid import UUID
 
 from app.core.errors import NotFound
 from app.modules.auth.service import now_utc
+from app.modules.categories.service import CategoryService
 from app.modules.groceries.models import Grocery
 from app.modules.meals.domain import Ingredient, merge, normalize_text, normalize_unit, scale
 from app.modules.meals.models import GroceryImport, MealPlanEntry, Recipe, RecipeIngredient
@@ -12,8 +13,11 @@ from app.modules.meals.schemas import AdditionInput, MealPlanInput, RecipeInput
 
 
 class MealsService:
-    def __init__(self, repository: MealsRepository):
+    def __init__(self, repository: MealsRepository, categories: CategoryService):
+        if repository.user_id != categories.repository.user_id:
+            raise ValueError("Meals and categories must use the same authenticated owner.")
         self.repository = repository
+        self.categories = categories
 
     # Recipes
     def list_recipes(self, offset: int, limit: int):
@@ -25,23 +29,30 @@ class MealsService:
             raise NotFound("This recipe could not be found.")
         return record
 
-    def _ingredients(self, data: RecipeInput):
+    def _ingredients(self, data: RecipeInput, recipe: Recipe | None = None):
+        # Ingredients may keep an archived aisle they already had.
+        kept = {item.category_id for item in recipe.ingredients} if recipe else set()
+        for item in data.ingredients:
+            current = item.category_id if item.category_id in kept else None
+            self.categories.require("grocery", item.category_id, current, optional=True)
         return [
             RecipeIngredient(user_id=self.repository.user_id, position=index, **item.model_dump())
             for index, item in enumerate(data.ingredients)
         ]
 
     def create_recipe(self, data: RecipeInput):
+        ingredients = self._ingredients(data)
         recipe = Recipe(user_id=self.repository.user_id, **data.model_dump(exclude={"ingredients"}))
-        recipe.ingredients = self._ingredients(data)
+        recipe.ingredients = ingredients
         return self.repository.save(recipe)
 
     def update_recipe(self, record_id: UUID, data: RecipeInput):
         """Replace the recipe and its ingredient list. Future previews use the new list."""
         recipe = self.get_recipe(record_id)
+        ingredients = self._ingredients(data, recipe)
         for key, value in data.model_dump(exclude={"ingredients"}).items():
             setattr(recipe, key, value)
-        recipe.ingredients = self._ingredients(data)
+        recipe.ingredients = ingredients
         return self.repository.save(recipe)
 
     def delete_recipe(self, record_id: UUID):
@@ -95,7 +106,8 @@ class MealsService:
                 name=item.name,
                 quantity=scale(item.quantity, entry.recipe.servings, entry.servings),
                 unit=item.unit,
-                category=item.category,
+                category=item.category or "",
+                category_id=item.category_id,
                 source=entry.recipe.name,
             )
             for entry in entries
@@ -118,6 +130,9 @@ class MealsService:
         if previous is not None:
             return dict(request_id=data.request_id, created=False, added=previous.item_count)
         ids, _ = self._selected(data.entry_ids)
+        for item in data.items:
+            # Reviewed lines carry the recipe's aisle, which may since have been archived.
+            self.categories.require("grocery", item.category_id, optional=True, allow_archived=True)
         user_id = self.repository.user_id
         record = GroceryImport(
             user_id=user_id,

@@ -2,7 +2,7 @@ import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import type { Bill, CalendarEntry, FeatureModule, Frequency, Meal, Module, RecordInput, RecordItem, Recurrence, Task } from './api/contracts';
 
 export const moduleNames: Record<Module, string> = { tasks: 'Tasks', calendar: 'Calendar', groceries: 'Groceries', bills: 'Bills' };
-export const featureNames: Record<FeatureModule, string> = { ...moduleNames, meals: 'Meals', budget: 'Budget' };
+export const featureNames: Record<FeatureModule, string> = { ...moduleNames, meals: 'Meals', budget: 'Money' };
 export const recordModules = (enabled: FeatureModule[]) => enabled.filter((m): m is Module => m in moduleNames);
 export const singular: Record<Module, string> = { tasks: 'task', calendar: 'event', groceries: 'grocery item', bills: 'bill' };
 export const titleOf = (item: RecordItem) => 'title' in item ? item.title : item.name;
@@ -19,6 +19,13 @@ export const money = (amount: string, currency: string) => {
   try { return new Intl.NumberFormat('en-US', {style: 'currency', currency}).format(Number(amount)); }
   catch { return currency + ' ' + amount; }
 };
+/** "+$12.00" / "−$4.50" for flows; zero has no sign. */
+export const signedMoney = (amount: string, currency: string) => {
+  const value = Number(amount);
+  return (value > 0 ? '+' : value < 0 ? '−' : '') + money(String(Math.abs(value)), currency);
+};
+/** "Monday, November 23" */
+export const longDate = (day: string) => new Intl.DateTimeFormat('en-US', {weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC'}).format(new Date(day + 'T12:00:00Z'));
 export function taskDeadline(task: Task, zone: string) {
   return task.due_date ? dateLabel(task.due_date) : task.due_at ? formatInTimeZone(task.due_at, zone, 'MMM d · h:mm a') : 'No deadline';
 }
@@ -31,7 +38,7 @@ export function isOverdue(item: Task | Bill, today: string) {
 export function toggleInput(item: RecordItem): RecordInput {
   const value = { ...item };
   delete (value as Partial<RecordItem>).id;
-  for (const key of ['series_id', 'occurrence_date', 'expense_id']) delete (value as Record<string, unknown>)[key];
+  for (const key of ['series_id', 'occurrence_date', 'expense_id', 'category']) delete (value as Record<string, unknown>)[key];
   if ('completed' in value) value.completed = !value.completed;
   if ('purchased' in value) value.purchased = !value.purchased;
   if ('paid' in value) value.paid = !value.paid;

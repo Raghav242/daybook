@@ -215,7 +215,18 @@ def test_dashboard_and_settings_are_isolated(raw_client):
         authenticate(bob, "Bob")
         other = bob.get("/api/dashboard").json()
         assert all(value == 0 for value in other["counts"].values())
-        for key in ["tasks", "agenda", "upcoming", "groceries", "bills"]:
+        assert other["has_records"] is False
+        for key in [
+            "overdue_tasks",
+            "due_today",
+            "unscheduled",
+            "upcoming_tasks",
+            "agenda",
+            "upcoming",
+            "groceries",
+            "overdue_bills",
+            "upcoming_bills",
+        ]:
             assert other[key] == []
         assert other["bill_totals"] == {}
         assert bob.get("/api/settings").json()["default_currency"] == "USD"

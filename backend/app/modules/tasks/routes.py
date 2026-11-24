@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.infrastructure.database import get_session
 from app.modules.auth.dependencies import current_user
+from app.modules.categories.routes import get_service as get_categories
 from app.modules.recurrence.service import RecurrenceService
 from app.modules.settings.repository import SettingsRepository
 from app.modules.settings.service import SettingsService
@@ -18,14 +19,22 @@ series_router = APIRouter(prefix="/task-series", tags=["tasks"])
 
 
 def get_recurrence(session: Session = Depends(get_session), user=Depends(current_user)):
+    categories = get_categories(session, user)
     return RecurrenceService(
         TaskSeriesRepository(session, user.id),
         SettingsService(SettingsRepository(session, user.id)),
+        validate=lambda data, series: categories.require(
+            "task", data.category_id, series.category_id if series else None, optional=True
+        ),
     )
 
 
 def get_service(session: Session = Depends(get_session), user=Depends(current_user)):
-    return TaskService(TaskRepository(session, user.id), get_recurrence(session, user))
+    return TaskService(
+        TaskRepository(session, user.id),
+        get_categories(session, user),
+        get_recurrence(session, user),
+    )
 
 
 class Page(BaseModel):

@@ -15,11 +15,19 @@ class IngredientInput(Input):
     name: str = Field(min_length=1, max_length=200)
     quantity: Decimal = Quantity
     unit: str = Field(default="", max_length=40)
-    category: str = Field(default="", max_length=80)
+    # Grocery category used when this ingredient is added to the list.
+    category_id: UUID | None = None
+    category: str | None = Field(default=None, exclude=True)
+    id: UUID | None = Field(default=None, exclude=True)
 
 
-class IngredientOutput(IngredientInput, Output):
+class IngredientOutput(Output):
     id: UUID
+    name: str
+    quantity: Decimal
+    unit: str
+    category_id: UUID | None = None
+    category: str | None = None
 
 
 class RecipeInput(Input):
@@ -73,6 +81,7 @@ class PreviewLine(BaseModel):
     name: str
     unit: str
     quantity: Decimal
+    category_id: UUID | None
     category: str
     sources: list[str]
     other_units: bool
@@ -89,7 +98,7 @@ class AdditionItem(Input):
     name: str = Field(min_length=1, max_length=200)
     quantity: Decimal = Quantity
     unit: str = Field(default="", max_length=40)
-    category: str = Field(default="", max_length=80)
+    category_id: UUID | None = None
 
 
 class AdditionInput(Input):

@@ -1,6 +1,5 @@
-import { RecordsView } from '../../shared/ui/RecordsView';
-import type { ComponentProps } from 'react';
-export default function BillsView(props: Omit<ComponentProps<typeof RecordsView>, 'module'>) {
+import { RecordsView, type ViewProps } from '../../shared/ui/RecordsView';
+
+export default function View(props: ViewProps) {
   return <RecordsView {...props} module="bills" />;
 }
-

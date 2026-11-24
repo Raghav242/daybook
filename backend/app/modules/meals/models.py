@@ -18,6 +18,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database import Base
 from app.infrastructure.types import UTCDateTime
+from app.modules.categories.models import category_name, category_owner_key
 
 MEALS = ("breakfast", "lunch", "dinner", "snack")
 
@@ -52,6 +53,7 @@ class RecipeIngredient(Base):
             ondelete="CASCADE",
             name="fk_ingredients_recipe_owner",
         ),
+        category_owner_key("recipe_ingredients"),
     )
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     recipe_id: Mapped[UUID] = mapped_column(Uuid, index=True)
@@ -60,7 +62,8 @@ class RecipeIngredient(Base):
     name: Mapped[str] = mapped_column(String(200))
     quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3))
     unit: Mapped[str] = mapped_column(String(40), default="")
-    category: Mapped[str] = mapped_column(String(80), default="")
+    # Grocery category (aisle) used when the ingredient is added to the list.
+    category_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
 
 
 class GroceryImport(Base):
@@ -112,3 +115,6 @@ class MealPlanEntry(Base):
     @property
     def added_to_groceries(self) -> bool:
         return self.grocery_import_id is not None
+
+
+RecipeIngredient.category = category_name(RecipeIngredient)

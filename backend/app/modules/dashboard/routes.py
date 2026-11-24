@@ -1,7 +1,4 @@
 from datetime import date
-from decimal import Decimal
-from typing import Literal
-from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -12,7 +9,7 @@ from app.modules.auth.dependencies import current_user
 from app.modules.bills.routes import get_recurrence as get_bill_recurrence
 from app.modules.bills.schemas import BillOutput
 from app.modules.budget.routes import get_service as get_budget_service
-from app.modules.budget.schemas import CurrencyTotal, ExpectedBills
+from app.modules.budget.schemas import CategoryLine, CurrencyTotal, ExpectedBills
 from app.modules.calendar.schemas import CalendarEntryOutput
 from app.modules.dashboard.repository import DashboardRepository
 from app.modules.dashboard.service import DashboardService
@@ -27,20 +24,13 @@ from app.modules.tasks.schemas import TaskOutput
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
-class RecurringItem(BaseModel):
-    kind: Literal["task", "bill"]
-    id: UUID
-    title: str
-    due_date: date
-    amount: Decimal | None
-    currency: str | None
-    overdue: bool
-
-
 class Spending(BaseModel):
+    """This month's recorded money, per currency. Unpaid bills are listed separately."""
+
     month: date
     totals: list[CurrencyTotal]
     expected_bills: list[ExpectedBills]
+    over_budget: list[CategoryLine]
 
 
 class Summary(BaseModel):
@@ -48,13 +38,17 @@ class Summary(BaseModel):
     timezone: str
     bill_horizon: date
     counts: dict[str, int]
-    tasks: list[TaskOutput]
+    has_records: bool
+    overdue_tasks: list[TaskOutput]
+    due_today: list[TaskOutput]
+    unscheduled: list[TaskOutput]
+    upcoming_tasks: list[TaskOutput]
     agenda: list[CalendarEntryOutput]
     upcoming: list[CalendarEntryOutput]
     groceries: list[GroceryOutput]
-    bills: list[BillOutput]
+    overdue_bills: list[BillOutput]
+    upcoming_bills: list[BillOutput]
     bill_totals: dict[str, str]
-    recurring: list[RecurringItem]
     meals_today: list[MealPlanOutput]
     spending: Spending | None
 

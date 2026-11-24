@@ -21,7 +21,10 @@ class GroceryRepository:
         total = self.session.scalar(select(func.count()).select_from(query.subquery()))
         items = self.session.scalars(
             query.order_by(
-                self.model.purchased, self.model.category, self.model.name, self.model.id
+                self.model.purchased,
+                self.model.category.asc().nullslast(),
+                self.model.name,
+                self.model.id,
             )
             .offset(offset)
             .limit(limit)

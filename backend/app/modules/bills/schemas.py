@@ -45,5 +45,6 @@ class BillSeriesOutput(BillSeriesInput, Output):
 class PayInput(Input):
     paid_on: date
     record_expense: bool = True
-    category: str = Field(default="Bills", min_length=1, max_length=80)
+    # Expense category for the recorded payment; required when record_expense is true.
+    category_id: UUID | None = None
     note: str = Field(default="", max_length=500)
