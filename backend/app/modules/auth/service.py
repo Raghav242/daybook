@@ -63,7 +63,12 @@ class AuthService:
     def bootstrap(self, old_token, ip):
         if self.validate_session(old_token):
             return old_token
-        if self.repository.consume_limit(digest("csrf:ip:" + ip), now_utc(), 300) > 60:
+        if config.AUTH_IP_RATE_LIMITS:
+            key, ceiling = "csrf:ip:" + ip, 60
+        else:
+            # The peer is a shared proxy: bound anonymous sessions for everyone instead.
+            key, ceiling = "csrf:global", config.AUTH_GLOBAL_SESSION_LIMIT
+        if self.repository.consume_limit(digest(key), now_utc(), 300) > ceiling:
             raise AuthError(429, "rate_limited", "Too many attempts. Please try again later.")
         return self.new_session(None, old_token, seconds=1800)
 
@@ -82,7 +87,15 @@ class AuthService:
         return token
 
     def limit(self, ip, username, operation):
-        keys = [f"{operation}:ip:{ip}"]
+        # Client addresses come only from the TCP peer, never from forwarded headers.
+        # Without a trustworthy per-client address, logins are limited per username
+        # only (a shared bucket would let one client lock everyone out), and
+        # registrations share one global bucket.
+        keys = []
+        if config.AUTH_IP_RATE_LIMITS:
+            keys.append(f"{operation}:ip:{ip}")
+        elif operation == "register":
+            keys.append("register:global")
         if operation == "login":
             keys.append("login:user:" + normalize_username(username))
         for key in keys:

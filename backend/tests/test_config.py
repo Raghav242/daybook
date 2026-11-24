@@ -1,6 +1,15 @@
+import pytest
 from sqlalchemy import URL, make_url
 
-from app.core.config import get_cors_origins, get_database_url
+from app.core import config
+from app.core.config import (
+    get_cors_origins,
+    get_database_url,
+    get_migration_database_url,
+    normalize_database_url,
+)
+from app.infrastructure.database import engine_options
+from app.infrastructure.migrations import migration_url
 
 
 def test_password_characters_survive_connection_url_construction(monkeypatch):
@@ -25,3 +34,35 @@ def test_cors_origins_come_from_environment_and_trim_empty_entries(monkeypatch):
     assert get_cors_origins() == ["https://app.example.test", "https://other.example.test"]
     monkeypatch.delenv("CORS_ORIGINS")
     assert get_cors_origins() == []
+
+
+def test_libpq_style_urls_use_the_installed_psycopg_driver(monkeypatch):
+    neon = "postgresql://user:secret@ep-x-pooler.example.neon.tech/db?sslmode=require"
+    monkeypatch.setenv("DATABASE_URL", neon)
+    assert get_database_url() == neon.replace("postgresql://", "postgresql+psycopg://", 1)
+    assert normalize_database_url("postgres://u@h/d") == "postgresql+psycopg://u@h/d"
+    assert normalize_database_url("postgresql+psycopg://u@h/d") == "postgresql+psycopg://u@h/d"
+    monkeypatch.setenv("MIGRATION_DATABASE_URL", "postgresql://u@direct.example/d")
+    assert get_migration_database_url() == "postgresql+psycopg://u@direct.example/d"
+    monkeypatch.delenv("MIGRATION_DATABASE_URL")
+    assert get_migration_database_url() is None
+
+
+def test_pooled_hosts_get_safe_engine_options():
+    pooled = engine_options("postgresql+psycopg://u@ep-x-pooler.example/d")
+    assert pooled["pool_pre_ping"] and pooled["pool_recycle"] == 300
+    assert pooled["connect_args"] == {"prepare_threshold": None}
+    assert "connect_args" not in engine_options("postgresql+psycopg://u@ep-x.example/d")
+    assert engine_options("sqlite:///./x.db") == {"pool_pre_ping": True}
+
+
+def test_migrations_prefer_direct_url_and_refuse_pooled_connections(monkeypatch):
+    monkeypatch.setattr(config, "DATABASE_URL", "postgresql+psycopg://u@ep-x-pooler.example/d")
+    monkeypatch.setattr(config, "MIGRATION_DATABASE_URL", None)
+    with pytest.raises(RuntimeError, match="MIGRATION_DATABASE_URL"):
+        migration_url()
+    monkeypatch.setattr(config, "MIGRATION_DATABASE_URL", "postgresql+psycopg://u@ep-x.example/d")
+    assert migration_url() == "postgresql+psycopg://u@ep-x.example/d"
+    monkeypatch.setattr(config, "MIGRATION_DATABASE_URL", None)
+    monkeypatch.setattr(config, "DATABASE_URL", "postgresql+psycopg://u@ep-x.example/d")
+    assert migration_url() == "postgresql+psycopg://u@ep-x.example/d"

@@ -12,6 +12,13 @@ from app.infrastructure.database import Base, get_session
 from app.main import app
 
 
+@pytest.fixture(autouse=True)
+def isolated_migration_target(monkeypatch):
+    # Migrations in tests must target the test database, never a configured one.
+    monkeypatch.setattr(config, "MIGRATION_DATABASE_URL", None)
+    monkeypatch.setattr(config, "AUTH_IP_RATE_LIMITS", True)
+
+
 @pytest.fixture
 def raw_client(tmp_path, monkeypatch):
     # A dedicated empty PostgreSQL database may be supplied for integration runs.

@@ -89,6 +89,8 @@ For a production frontend, Vite captures VITE_API_BASE_URL during npm run build;
 
 The default `compose.yaml` is for development. `compose.production.yaml` is a separate production stack with Nginx serving the built frontend, a non-root API process without reload, and a one-shot migration job. It uses an external PostgreSQL database; it does not start or publish a database container. No cloud deployment was performed.
 
+**Render (Free) + Neon:** a single combined image (root `Dockerfile`) serves the API and the built frontend from one origin, deployed only by the manual GitHub Actions workflow. See [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ### Development and production Docker workflows
 
 Development keeps the existing `.env` and PostgreSQL volume:
@@ -111,7 +113,7 @@ docker compose --env-file .env.production -p daybook-production -f compose.produ
 
 Use the production file **by itself**, not merged with the development file. The distinct project name prevents local development containers from being replaced. The example publishes the frontend on localhost:8080 and leaves the backend private to the Docker network. Changing environments does not copy your local records into the production database.
 
-The migration service must succeed before the backend starts, and the backend must pass its health check before the frontend starts. On subsequent releases, set a new `IMAGE_TAG` so Compose recreates the migration job for the new code. Back up the production database before schema changes. Do not run migrations concurrently from multiple replicas.
+The migration service must succeed before the backend starts, and the backend must pass its health check before the frontend starts. On subsequent releases, set a new `IMAGE_TAG` so Compose recreates the migration job for the new code. Back up the production database before schema changes. Concurrent `alembic upgrade` runs against PostgreSQL are serialized by an advisory lock; a rollback of the application does not undo applied schema changes.
 
 Same-origin mode uses `VITE_API_BASE_URL=/api`: Nginx forwards `/api` to `BACKEND_UPSTREAM` (an HTTP(S) base address with no trailing slash or `/api` suffix). Changing this internal upstream is a runtime change; recreate the frontend container. `NGINX_RESOLVER` is Docker's internal DNS in Compose; on another container platform use its DNS resolver.
 

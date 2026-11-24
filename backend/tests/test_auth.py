@@ -236,3 +236,54 @@ def test_dashboard_and_settings_are_isolated(raw_client):
     session = next(dependency)
     assert session.scalar(select(User).where(User.id == UUID(alice["id"]))).username == "Alice"
     dependency.close()
+
+
+def test_behind_a_proxy_logins_are_limited_per_username_not_per_shared_address(
+    raw_client, monkeypatch
+):
+    # Every request arrives from the same proxy address and forwarded headers are
+    # ignored, so a shared per-address bucket must not exist.
+    monkeypatch.setattr(config, "AUTH_IP_RATE_LIMITS", False)
+    monkeypatch.setattr(config, "AUTH_RATE_LIMIT", 2)
+    authenticate(raw_client, "Alice")
+    authenticate(raw_client, "Bob")
+    spoofed = {"X-Forwarded-For": "203.0.113.9", "X-Real-IP": "203.0.113.9"}
+    for _ in range(3):
+        raw_client.post(
+            "/api/auth/login", headers=spoofed, json={"username": "Alice", "password": "wrong"}
+        )
+    # Alice's limit holds no matter which address the client claims.
+    assert (
+        raw_client.post(
+            "/api/auth/login",
+            headers={"X-Forwarded-For": "198.51.100.1"},
+            json={"username": "Alice", "password": "test-passphrase-123"},
+        ).status_code
+        == 429
+    )
+    # Bob, behind the same proxy address, is unaffected.
+    assert authenticate(raw_client, "Bob", register=False)["username"] == "Bob"
+
+
+def test_behind_a_proxy_registration_and_anonymous_sessions_share_global_limits(
+    raw_client, monkeypatch
+):
+    monkeypatch.setattr(config, "AUTH_IP_RATE_LIMITS", False)
+    monkeypatch.setattr(config, "AUTH_RATE_LIMIT", 2)
+    monkeypatch.setattr(config, "AUTH_GLOBAL_SESSION_LIMIT", 3)
+    authenticate(raw_client, "first")
+    authenticate(raw_client, "second")
+    csrf = raw_client.get("/api/auth/csrf").json()["csrf_token"]
+    third = raw_client.post(
+        "/api/auth/register",
+        headers={"X-CSRF-Token": csrf, "X-Forwarded-For": "192.0.2.77"},
+        json={"username": "third", "password": "test-passphrase-123"},
+    )
+    assert third.status_code == 429
+    raw_client.cookies.clear()
+    statuses = [
+        TestClient(app).get("/api/auth/csrf", headers={"X-Forwarded-For": f"192.0.2.{n}"})
+        for n in range(4)
+    ]
+    # One anonymous session was already used by "first"; claimed addresses don't matter.
+    assert [r.status_code for r in statuses] == [200, 200, 429, 429]

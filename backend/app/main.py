@@ -1,12 +1,17 @@
 import logging
+import os
+import re
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException
 
+from app.core import config
 from app.core.config import CORS_ORIGINS
 from app.core.errors import Conflict, Invalid, NotFound
 from app.modules.auth.routes import router as auth
@@ -85,11 +90,51 @@ async def auth_error(request: Request, exc: AuthError):
     )
 
 
+# Vite names build output "<name>-<content hash>.<ext>", so these never change.
+FINGERPRINTED_ASSET = re.compile(r"^/assets/[^/]+-[A-Za-z0-9_-]{8}\.[A-Za-z0-9]+$")
+
+
 @app.middleware("http")
-async def private_no_store(request: Request, call_next):
+async def cache_policy(request: Request, call_next):
     response = await call_next(request)
-    response.headers["Cache-Control"] = "no-store"
+    path = request.url.path
+    if response.status_code in (200, 304) and FINGERPRINTED_ASSET.match(path):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    elif response.status_code in (200, 304) and path in ("/", "/index.html"):
+        # Always revalidate the entry page so a deploy picks up new asset names.
+        response.headers["Cache-Control"] = "no-cache"
+    else:
+        # API data is private; everything else is never stored either.
+        response.headers["Cache-Control"] = "no-store"
     return response
+
+
+def mount_frontend(dist):
+    """Serve the built single-page app from the API's origin.
+
+    Only "/" (the entry page) and "/assets/*" are served. The app uses hash
+    routes, so no catch-all is needed, and unknown /api paths stay API 404s.
+    """
+    root = Path(dist)
+    if not (root / "index.html").is_file():
+        raise RuntimeError(f"FRONTEND_DIST={dist} does not contain index.html.")
+    if not CORS_ORIGINS:
+        # Same-origin writes still send Origin, which the CSRF check must accept.
+        raise RuntimeError("Set CORS_ORIGINS to the public origin, e.g. https://app.example.")
+    files = StaticFiles(directory=root)
+    index = str(root / "index.html")
+
+    @app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
+    @app.api_route("/index.html", methods=["GET", "HEAD"], include_in_schema=False)
+    async def frontend_index(request: Request):
+        # StaticFiles adds ETag/Last-Modified and answers conditional requests with 304.
+        return files.file_response(index, os.stat(index), request.scope)
+
+    app.mount("/assets", StaticFiles(directory=root / "assets"), name="assets")
+
+
+if config.FRONTEND_DIST:
+    mount_frontend(config.FRONTEND_DIST)
 
 
 @app.exception_handler(RequestValidationError)

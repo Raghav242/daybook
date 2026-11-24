@@ -2,6 +2,7 @@
 .env.*
 !.env.example
 !.env.production.example
+!.env.render.example
 .venv/
 __pycache__/
 .pytest_cache/

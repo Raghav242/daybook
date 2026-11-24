@@ -1,0 +1,19 @@
+# Build context for the root (combined production) Dockerfile only.
+.git
+.github
+.env
+.env.*
+**/.env
+**/.env.*
+**/node_modules
+**/dist
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/.venv
+**/*.db
+**/*.log
+**/*.tsbuildinfo
+backend/tests
+verification
+scripts

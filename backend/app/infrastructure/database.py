@@ -1,6 +1,6 @@
 import sqlite3
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, make_url
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session
 
@@ -17,7 +17,23 @@ def enforce_sqlite_foreign_keys(connection, record):
         connection.execute("PRAGMA foreign_keys=ON")
 
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+def is_pooled_host(url):
+    """Neon's PgBouncer endpoints carry ``-pooler`` in the host name."""
+    return "-pooler" in (make_url(url).host or "")
+
+
+def engine_options(url):
+    options = {"pool_pre_ping": True}
+    if make_url(url).get_backend_name() == "postgresql":
+        # Hosted Postgres closes idle connections and may suspend the compute.
+        options["pool_recycle"] = 300
+        if is_pooled_host(url):
+            # Transaction pooling may route statements to different server sessions.
+            options["connect_args"] = {"prepare_threshold": None}
+    return options
+
+
+engine = create_engine(DATABASE_URL, **engine_options(DATABASE_URL))
 
 
 def get_session():
