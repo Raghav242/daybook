@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Pencil, Plus, ShoppingBasket, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Pencil, Plus, ShoppingBasket, Trash2 } from 'lucide-react';
 import { api } from '../../shared/api/client';
 import type { MealPlanEntry, Recipe } from '../../shared/api/contracts';
 import { addDays, dateLabel, mealNames, weekdayLabel, weekStart } from '../../shared/domain';
@@ -34,7 +34,7 @@ export default function MealsView({ revision, today, onChanged }: { revision: nu
     {week.data && <ol className="week-plan" aria-busy={week.loading}>{days.map(day => { const meals = week.data!.filter(e => e.plan_date === day); return <li key={day} className={day === today ? 'is-today' : ''}>
       <div className="week-day"><strong>{weekdayLabel(day)}</strong><span>{dateLabel(day)}</span></div>
       <div className="week-meals">{meals.length ? <ul>{meals.map(entry => <li key={entry.id} className="meal-row">
-        {entry.added_to_groceries ? <span className="meal-added" title="Groceries added"><Check size={14} aria-label="Groceries already added" /></span> : <input type="checkbox" className="check" checked={!unselected.has(entry.id)} aria-label={'Include ' + entry.recipe_name + ' on ' + dateLabel(day) + ' in the grocery list'} onChange={() => toggle(entry.id)} />}
+        {entry.added_to_groceries ? <span className="meal-added" title="Already on the grocery list" role="img" aria-label={entry.recipe_name + ' is already on the grocery list'}><ShoppingBasket size={15} aria-hidden="true" /></span> : <input type="checkbox" className="check" checked={!unselected.has(entry.id)} aria-label={'Include ' + entry.recipe_name + ' on ' + dateLabel(day) + ' in the grocery list'} onChange={() => toggle(entry.id)} />}
         <div className="row-copy"><button className="row-title" onClick={() => setEditing({ kind: 'meal', entry, day })}>{entry.recipe_name}</button><span className="row-meta">{mealNames[entry.meal]} · {entry.servings} {entry.servings === 1 ? 'serving' : 'servings'}{entry.added_to_groceries ? ' · on the list' : ''}</span></div>
         <button className="icon-button" aria-label={'Delete ' + entry.recipe_name + ' on ' + dateLabel(day)} onClick={() => setEditing({ kind: 'delete-meal', entry })}><Trash2 size={15} /></button>
       </li>)}</ul> : null}
