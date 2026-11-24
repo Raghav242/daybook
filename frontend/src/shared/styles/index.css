@@ -219,6 +219,24 @@ button.row-title:focus-visible::after { outline: 2px solid var(--accent); outlin
 .meter.near span { background: var(--warn); }
 .meter.over span { background: var(--danger); }
 .budget-row { align-items: flex-start; padding: 12px 0; }
+/* Spending split: categorical slots validated (CVD + normal vision) against --bg, in this order. */
+.split {
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
+  --series-5: #e87ba4; --series-6: #008300; --series-7: #6250d6; --series-8: #e34948;
+  --series-other: #a9a59c;
+  margin-bottom: 8px;
+}
+.split-bar { display: flex; gap: 2px; height: 8px; margin: 6px 0 10px; border-radius: 4px; overflow: hidden; }
+.split-bar span { flex-basis: 0; min-width: 2px; transition: opacity .15s; }
+.split-bar span.dim { opacity: .35; }
+.split-legend { display: grid; gap: 0; }
+.split-legend li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto 3.5em; align-items: center; gap: 10px; padding: 7px 6px; margin-inline: -6px; border-radius: 6px; font-size: 14px; }
+.split-legend li.active { background: var(--fill); }
+.split-swatch { width: 10px; height: 10px; border-radius: 3px; }
+.split-name { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.split-amount { font-variant-numeric: tabular-nums; font-weight: 500; color: var(--ink); text-align: right; }
+.split-share { font-variant-numeric: tabular-nums; color: var(--muted); text-align: right; }
+@media (forced-colors: active) { .split-bar span { forced-color-adjust: none; } }
 
 /* Forms */
 label { display: grid; gap: 6px; font-size: 14px; font-weight: 500; color: var(--ink-2); }

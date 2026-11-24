@@ -40,7 +40,7 @@ test('the overview shows income, expenses and net per currency, with bills kept 
   await user.click(screen.getByRole('button', {name: 'EUR'}));
   expect(within(list).getByText('−€9.00')).toBeInTheDocument();
   expect(screen.queryByText('$1,200.00')).not.toBeInTheDocument();
-  expect(screen.getByText(/No unpaid EUR bills/)).toBeInTheDocument();
+  expect(screen.getByText(/No unpaid bills due in/)).toBeInTheDocument();
 });
 
 test('transactions combine expenses and income, filter by kind, and confirm before deleting', async () => {

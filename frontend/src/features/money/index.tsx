@@ -9,6 +9,7 @@ import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
 import { Dialog } from '../../shared/ui/Dialog';
 import { Filters, PageHead, Pagination } from '../../shared/ui/RecordsView';
 import type { EntryKind } from '../capture/kinds';
+import { SpendingSplit } from './SpendingSplit';
 import { TransactionEditor } from './TransactionForm';
 
 export interface MoneyProps { revision: number; today: string; currency: string; month: string; onMonth: (month: string) => void; onAdd: (kind?: EntryKind) => void; onChanged: (message?: string) => void }
@@ -73,18 +74,19 @@ export function MoneyOverview({ revision, today, currency, month, onMonth, onAdd
         <div className={Number(total?.net || 0) < 0 ? 'negative' : ''}><dt>Net cash flow</dt><dd>{signedMoney(total?.net || '0', shown)}</dd></div>
       </dl>
       <p className="form-hint">Net cash flow is recorded income minus recorded expenses for {monthLabel(month)}. It is not a bank balance.</p>
+      <SpendingSplit lines={lines} currency={shown} />
       <section aria-labelledby="due-title">
         <div className="section-head"><h2 id="due-title" className="section-title">Still due</h2><a className="view-all" href="#bills">Bills<ArrowRight size={14} aria-hidden="true" /></a></div>
         {due ? <>
           <p className="row-meta">{due.count} unpaid {due.count === 1 ? 'bill' : 'bills'} · {money(due.amount, shown)} · not counted as spending until paid</p>
           <ul className="rows">{s.unpaid_bills.filter(b => b.currency === shown).map(b => <li key={b.id} className={'row' + (b.due_date < today ? ' overdue' : '')}><div className="row-copy"><span className="row-title static">{b.name}</span><span className={'row-meta' + (b.due_date < today ? ' warn-text' : '')}>{b.due_date < today ? 'Overdue · ' : 'Due '}{dateLabel(b.due_date)}</span></div><span className="row-amount">{money(b.amount, b.currency)}</span></li>)}</ul>
-        </> : <p className="quiet">No unpaid {shown} bills due in {monthLabel(month)}.</p>}
+        </> : <p className="quiet">No unpaid bills due in {monthLabel(month)}.</p>}
       </section>
       <section aria-labelledby="progress-title">
         <div className="section-head"><h2 id="progress-title" className="section-title">Budgets</h2><a className="view-all" href="#budgets">Manage<ArrowRight size={14} aria-hidden="true" /></a></div>
         {budgeted.length ? <ul className="rows budget-rows">{budgeted.map(line => <li key={line.category_id} className={'row budget-row' + (Number(line.remaining) < 0 ? ' overdue' : '')}>
           <div className="row-copy"><span className="row-title static">{line.category}</span><span className={'row-meta' + (Number(line.remaining) < 0 ? ' warn-text' : '')}>{remainingLabel(line)}</span><BudgetMeter line={line} /></div>
-        </li>)}</ul> : <p className="quiet">No {shown} budgets yet. <a href="#budgets">Set one</a></p>}
+        </li>)}</ul> : <p className="quiet">No budgets yet. <a href="#budgets">Set one</a></p>}
         {loose.length > 0 && <>
           <h3 className="subhead">Spending without a budget</h3>
           <ul className="rows">{loose.map(line => <li key={line.category_id} className="row"><div className="row-copy"><span className="row-title static">{line.category}</span></div><span className="row-amount">{money(line.spent, line.currency)}</span></li>)}</ul>
@@ -152,7 +154,7 @@ export function BudgetsView({ revision, today, currency, month, onMonth, onChang
     </li>; })}</ul> : <div className="empty"><p>No budgets yet. A budget is a standing monthly limit for one expense category.</p><button className="text-button" onClick={() => setEditing({})}><Plus size={15} />Add budget</button></div>)}
     <p className="form-hint">Budgets apply to every month. Income never changes a budget, and amounts in different currencies are kept apart.</p>
     {editing && <BudgetEditor budget={editing.budget} currency={currency} onClose={() => setEditing(undefined)} onSaved={done} />}
-    {deleting && <ConfirmDialog title="Remove this budget?" body={`The ${deleting.currency} budget for “${deleting.category}” will be removed. Expenses are kept.`} action="Remove budget" onClose={() => setDeleting(undefined)} onConfirm={async () => { await api.deleteBudget(deleting.id); done('Budget removed.'); }} />}
+    {deleting && <ConfirmDialog title="Remove this budget?" body={`The budget for “${deleting.category}” will be removed. Expenses are kept.`} action="Remove budget" onClose={() => setDeleting(undefined)} onConfirm={async () => { await api.deleteBudget(deleting.id); done('Budget removed.'); }} />}
   </section>;
 }
 
